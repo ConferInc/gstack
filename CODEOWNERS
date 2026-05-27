@@ -1,0 +1,5 @@
+* @aether-s7
+/confer-packs/* @aether-s7 @vulcan-mac
+/resolver/* @aether-s7 @vulcan-mac
+/UPSTREAM.md @vulcan-mac @yatinkarnik
+/CODEOWNERS @yatinkarnik
