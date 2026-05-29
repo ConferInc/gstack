@@ -645,7 +645,11 @@ If you are looping on the same diagnostic, same file, or failed fix variants, ST
 
 Before each AskUserQuestion, choose `question_id` from `scripts/question-registry.ts` or `{skill}-{slug}`, then run `~/.claude/skills/gstack/bin/gstack-question-preference --check "<id>"`. `AUTO_DECIDE` means choose the recommended option and say "Auto-decided [summary] → [option] (your preference). Change with /plan-tune." `ASK_NORMALLY` means ask.
 
-After answer, log best-effort:
+**Embed the question_id as a marker in the question text** so hooks can identify it deterministically (plan-tune cathedral T14 / D18 progressive markers). Append `<gstack-qid:{question_id}>` somewhere in the rendered question (the leading line or trailing line is fine; the marker doesn't render visibly to the user when wrapped in HTML-style angle brackets, but the hook strips it). Without the marker the PreToolUse enforcement hook treats the AUQ as observed-only and never auto-decides — so always include it when the question matches a registered `question_id`.
+
+**Embed the option recommendation via the `(recommended)` label suffix** on exactly one option per AUQ. The PreToolUse hook parses `(recommended)` first, falls back to "Recommendation: X" prose, and refuses to auto-decide if ambiguous. Two `(recommended)` labels = refuse.
+
+After answer, log best-effort (PostToolUse hook also captures deterministically when installed; dedup on (source, tool_use_id) handles double-writes):
 ```bash
 ~/.claude/skills/gstack/bin/gstack-question-log '{"skill":"confer-fleet-status","question_id":"<id>","question_summary":"<short>","category":"<approval|clarification|routing|cherry-pick|feedback-loop>","door_type":"<one-way|two-way>","options_count":N,"user_choice":"<key>","recommended":"<key>","session_id":"'"$_SESSION_ID"'"}' 2>/dev/null || true
 ```
@@ -775,7 +779,49 @@ your direct subordinates; escalate blockers up your chain (see escalation path).
 
 ## Escalation
 
-You are not a registered Confer fleet agent. Escalate blockers to **human**.
+Escalation paths by agent. Find the agent you are acting as and escalate to its
+next hop — do not skip levels. (Set `CONFER_AGENT=<your-name>` to auto-scope
+this block to just your own chain.)
+
+| Agent | Escalation path (→ up to human) |
+|-------|----------------------------------|
+| `aether` | `aether` → **human** |
+| `architect` | `architect` → `forge` → `aether` → **human** |
+| `argos` | `argos` → `aether` → **human** |
+| `atlas` | `atlas` → **human** |
+| `bauji` | `bauji` → `aether` → **human** |
+| `builder-1` | `builder-1` → `forge` → `aether` → **human** |
+| `builder-2` | `builder-2` → `forge` → `aether` → **human** |
+| `builder-3` | `builder-3` → `forge` → `aether` → **human** |
+| `cmo` | `cmo` → `aether` → **human** |
+| `daedalus` | `daedalus` → `aether` → **human** |
+| `deployer` | `deployer` → `forge` → `aether` → **human** |
+| `echo` | `echo` → `perseus` → `aether` → **human** |
+| `forge` | `forge` → `aether` → **human** |
+| `gopal` | `gopal` → `theseus` → `aether` → **human** |
+| `grace` | `grace` → `kris` → `perseus` → `aether` → **human** |
+| `helios` | `helios` → `aether` → **human** |
+| `keeper` | `keeper` → `aether` → **human** |
+| `kris` | `kris` → `perseus` → `aether` → **human** |
+| `mini` | `mini` → `kris` → `perseus` → `aether` → **human** |
+| `orion` | `orion` → `prometheus` → `aether` → **human** |
+| `perseus` | `perseus` → `aether` → **human** |
+| `praxis` | `praxis` → `aether` → **human** |
+| `prometheus` | `prometheus` → `aether` → **human** |
+| `qa` | `qa` → `forge` → `aether` → **human** |
+| `raj` | `raj` → `bauji` → `aether` → **human** |
+| `requirements` | `requirements` → `forge` → `aether` → **human** |
+| `reviewer` | `reviewer` → `forge` → `aether` → **human** |
+| `scribe` | `scribe` → `aether` → **human** |
+| `sherpa` | `sherpa` → **human** |
+| `simran` | `simran` → `bauji` → `aether` → **human** |
+| `soul` | `soul` → `kris` → `perseus` → `aether` → **human** |
+| `tester-1` | `tester-1` → `forge` → `aether` → **human** |
+| `tester-2` | `tester-2` → `forge` → `aether` → **human** |
+| `theseus` | `theseus` → `aether` → **human** |
+| `victor` | `victor` → `kris` → `perseus` → `aether` → **human** |
+| `vulcan` | `vulcan` → **human** |
+| `zeal` | `zeal` → `kris` → `perseus` → `aether` → **human** |
 
 ---
 

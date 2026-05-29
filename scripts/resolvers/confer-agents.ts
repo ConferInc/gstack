@@ -185,20 +185,44 @@ export function generateEscalationChain(ctx: TemplateContext): string {
   const agentName = process.env.CONFER_AGENT?.trim() || ctx.skillName;
   const known = registry.agents.some(a => a.name === agentName);
 
-  if (!known) {
+  // Specific-agent path: only when CONFER_AGENT (or a skillName that is an
+  // actual fleet agent) resolves to a registered agent — i.e. the skill is
+  // running AS that agent. Renders that one agent's chain.
+  if (known) {
+    const chain = buildEscalationChain(registry, agentName);
+    const rendered = chain.map(n => (n === 'human' ? '**human**' : `\`${n}\``)).join(' → ');
     return `## Escalation
-
-You are not a registered Confer fleet agent. Escalate blockers to **human**.`;
-  }
-
-  const chain = buildEscalationChain(registry, agentName);
-  const rendered = chain.map(n => (n === 'human' ? '**human**' : `\`${n}\``)).join(' → ');
-
-  return `## Escalation
 
 When you hit a blocker you cannot resolve autonomously, escalate up this chain:
 
 ${rendered}
 
 Address only your direct manager (the next hop); do not skip levels.`;
+  }
+
+  // Gen-time / unknown-agent path: CONFER_AGENT is not set (this is what
+  // happens when gen-skill-docs renders the static SKILL.md — ctx.skillName is
+  // the SKILL name, not a fleet agent). DON'T bake a misleading "you are not
+  // registered → human" line. Instead emit the FULL escalation reference for
+  // every agent, so whoever runs the skill (operator, or an agent acting on
+  // behalf of another) can find the right chain. Deterministic + always
+  // accurate; auto-scopes to a single chain when CONFER_AGENT is set at runtime.
+  const rows = registry.agents
+    .slice()
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .map(a => {
+      const chain = buildEscalationChain(registry, a.name);
+      const rendered = chain.map(n => (n === 'human' ? '**human**' : `\`${n}\``)).join(' → ');
+      return `| \`${a.name}\` | ${rendered} |`;
+    });
+
+  return `## Escalation
+
+Escalation paths by agent. Find the agent you are acting as and escalate to its
+next hop — do not skip levels. (Set \`CONFER_AGENT=<your-name>\` to auto-scope
+this block to just your own chain.)
+
+| Agent | Escalation path (→ up to human) |
+|-------|----------------------------------|
+${rows.join('\n')}`;
 }

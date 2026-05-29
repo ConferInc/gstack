@@ -124,12 +124,18 @@ describe('{{ESCALATION_CHAIN}} — escalation walking', () => {
     }
   });
 
-  test('unknown agent gets a generic escalate-to-human line', () => {
+  test('unknown agent (gen-time, no CONFER_AGENT) renders the FULL escalation reference, not a dead fallback', () => {
     const prev = process.env.CONFER_AGENT;
     delete process.env.CONFER_AGENT;
     try {
       const out = generateEscalationChain(makeCtx({ skillName: 'definitely-not-an-agent' }));
-      expect(out).toContain('not a registered Confer fleet agent');
+      // The old buggy behavior baked a misleading "not a registered agent" line
+      // into every shipped SKILL.md. New behavior: emit the full per-agent
+      // reference table so the block is always accurate regardless of reader.
+      expect(out).not.toContain('not a registered Confer fleet agent');
+      expect(out).toContain('## Escalation');
+      expect(out).toContain('Escalation paths by agent');
+      expect(out).toContain('| Agent |');
       expect(out).toContain('**human**');
     } finally {
       if (prev !== undefined) process.env.CONFER_AGENT = prev;
