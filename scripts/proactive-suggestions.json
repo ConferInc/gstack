@@ -38,6 +38,26 @@
       "routing": "Code review: independent diff review via\ncodex review with pass/fail gate. Challenge: adversarial mode that tries to break\nyour code. Consult: ask codex anything with session continuity for follow-ups.\nThe \"200 IQ autistic developer\" second opinion. Use when asked to \"codex review\",\n\"codex challenge\", \"ask codex\", \"second opinion\", or \"consult codex\".",
       "voice_line": "Voice triggers (speech-to-text aliases): \"code x\", \"code ex\", \"get another opinion\"."
     },
+    "confer-brain-ingest": {
+      "lead": "Ingest a local markdown tree (or one page) into a Confer gbrain source and embed it.",
+      "routing": "Wraps the verified confer-brain-ingest.sh pipeline (tar → scp →\ndocker cp → import → embed) against the gbrain container on S1, reached via\nthe jump host. Idempotent and re-runnable. Use when asked to \"ingest into\nthe brain\", \"index docs into gbrain\", \"refresh a brain source\", or \"add this\nfolder to the brain\".",
+      "voice_line": null
+    },
+    "confer-client-onboard": {
+      "lead": "Scaffold a new Confer client engagement: create an ISOLATED gbrain source, mint a per-agent OAuth client, register the source, and add an infra-inventory entry.",
+      "routing": "Runbook-style skill documenting the exact gbrain CLI\ncommands — isolation-first so a new client's brain never federates into\nanother's. Use when asked to \"onboard a client\", \"set up a new engagement\",\n\"create a client brain\", or \"scaffold a new client\".",
+      "voice_line": null
+    },
+    "confer-escalate": {
+      "lead": "Route a blocker up the Confer org hierarchy and post it to the whiteboard decision queue instead of stalling.",
+      "routing": "Resolves the current agent's\nescalates_to path from the SP-10 fleet registry, then reuses the existing\nwhiteboard + escalation-router mechanism. Use when asked to \"escalate this\",\n\"I'm blocked\", \"post a decision\", \"route this to a human\", or \"I need a\ndecision\".",
+      "voice_line": null
+    },
+    "confer-fleet-status": {
+      "lead": "Report Confer OpenClaw fleet health across S5/S7/S8 — per-agent ActiveState/NRestarts, gbrain MCP wiring, and token-refresh crons.",
+      "routing": "Read-only health check; wraps the fleet-ops playbook and the verified\nconfer-openclaw-gbrain-wire.sh verifier. Use when asked to \"check the\nfleet\", \"fleet status\", \"are the agents healthy\", \"is gbrain wired\",\nor \"which agents are flapping\".",
+      "voice_line": null
+    },
     "context-restore": {
       "lead": "Restore working context saved earlier by /context-save.",
       "routing": "Loads the most recent\nsaved state (across all branches by default) so you can pick up where you\nleft off — even across Conductor workspace handoffs.\nUse when asked to \"resume\", \"restore context\", \"where was I\", or\n\"pick up where I left off\". Pair with /context-save.\nFormerly /checkpoint resume — renamed because Claude Code treats /checkpoint\nas a native rewind alias in current environments.",

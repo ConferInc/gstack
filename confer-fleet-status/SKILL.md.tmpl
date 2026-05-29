@@ -1,0 +1,184 @@
+---
+name: confer-fleet-status
+preamble-tier: 2
+version: 1.0.0
+description: |
+  Report Confer OpenClaw fleet health across S5/S7/S8 — per-agent
+  ActiveState/NRestarts, gbrain MCP wiring, and token-refresh crons.
+  Read-only health check; wraps the fleet-ops playbook and the verified
+  confer-openclaw-gbrain-wire.sh verifier. Use when asked to "check the
+  fleet", "fleet status", "are the agents healthy", "is gbrain wired",
+  or "which agents are flapping". (gstack)
+triggers:
+  - fleet status
+  - check the fleet
+  - agent health
+  - is gbrain wired
+  - which agents are flapping
+allowed-tools:
+  - Bash
+  - Read
+  - Grep
+---
+
+{{PREAMBLE}}
+
+# /confer-fleet-status — Read-only Confer fleet health report
+
+You are a **fleet SRE running a non-mutating health sweep**. Your job is to
+report the live state of the Confer OpenClaw fleet — which agents are up, which
+are flapping, whether each is wired to the Confer gbrain MCP, and whether the
+12-hourly token-refresh cron is installed — and to surface any escalation path
+when something is wrong.
+
+**HARD GATE — read-only.** This skill NEVER restarts a service, re-mints a
+token, edits a config, or runs `wire`/`refresh`. It only runs the `verify`
+verb and read-only `ssh`/`systemctl show`/`docker ps` probes. Any remediation
+is reported as a next step for the operator to run deliberately (via the
+`fleet-ops` skill), not executed here.
+
+{{CONFER_FLEET}}
+
+{{ESCALATION_CHAIN}}
+
+---
+
+## Underlying tooling (this skill is a wrapper)
+
+This skill does not reimplement fleet logic. It composes two existing,
+verified pieces:
+
+1. **The `fleet-ops` skill** (`~/.claude/skills/fleet-ops/SKILL.md`) — the
+   canonical source for server connection rules (S5 = public IP, S7 =
+   Tailscale IP), per-agent ports/profiles, and the health-probe one-liners.
+   Read it before probing; do not hardcode IPs that may have drifted.
+2. **`confer-openclaw-gbrain-wire.sh verify <agent>`** (in confer-fleet-ops)
+   — runs ON the target host and prints, for one agent:
+   `ActiveState`, `NRestarts`, `gbrain` (in the agent's `openclaw mcp list`),
+   and `refresh_cron` (present/MISSING). This is the authoritative per-agent
+   wiring check.
+
+The fleet roster, each agent's host, and the escalation chain come from the
+SP-10 foundation (`resolver/agents.yaml`), rendered into the two blocks above
+at `bun run gen:skill-docs` time. Use that roster to decide which agents to
+probe on which host — do not guess.
+
+---
+
+## Step 1: Confirm connection rules
+
+Read the `## CRITICAL: Server Connection Rules` table in the `fleet-ops`
+skill. The non-obvious rules that bite every time:
+
+- **Server 5** — `ssh yatin@207.244.254.194` (PUBLIC IP; Tailscale times out).
+- **Server 7** — `ssh root@100.123.46.72` (TAILSCALE IP; public IP times out).
+- **Server 8** — `ssh root@176.57.184.163` (Coolify host).
+
+If a probe hangs, you are almost certainly on the wrong transport for that
+server — switch and retry once, then report the host as `UNREACHABLE` rather
+than blocking.
+
+---
+
+## Step 2: Per-host liveness sweep (read-only)
+
+Group the roster (from the **Confer Fleet** block above) by `host`, then run a
+read-only liveness probe per host. Example for S7 (adapt the IP/transport per
+Step 1, and the exact probe per the `fleet-ops` Quick Health Check):
+
+```bash
+ssh root@100.123.46.72 "
+  echo '=== openclaw processes ==='
+  ps aux | grep '[o]penclaw' | wc -l
+  echo '=== flapping / failed units ==='
+  systemctl --user list-units 'openclaw-*' --state=failed --no-legend 2>/dev/null || true
+"
+```
+
+For S5 substitute the public-IP transport; for S8 use the Coolify host. Capture
+raw output; do not paraphrase counts you did not see.
+
+---
+
+## Step 3: Per-agent wiring verify
+
+For each agent in the roster, run the verifier ON its host. The script lives at
+`~/Workspace/Confer/Code/confer-fleet-ops/bin/confer-openclaw-gbrain-wire.sh`
+locally; on the target host it is installed at
+`/usr/local/bin/confer-openclaw-gbrain-wire.sh`. Run the `verify` verb (the
+ONLY verb this skill is permitted to invoke):
+
+```bash
+# On S7 (Tailscale). One agent at a time; loop over the S7 agents in the roster.
+ssh root@100.123.46.72 \
+  "/usr/local/bin/confer-openclaw-gbrain-wire.sh verify <agent>"
+# Prints: <agent>: ActiveState=active NRestarts=N gbrain=gbrain refresh_cron=present
+```
+
+Per agent, record four fields exactly as printed:
+
+- `ActiveState` — expect `active`.
+- `NRestarts` — a high or climbing count is the flapping signal.
+- `gbrain` — `gbrain` means the MCP server is in the agent's `mcp list`; `NO`
+  means it is not wired.
+- `refresh_cron` — `present` means the 12h token-refresh cron exists;
+  `MISSING` means tokens will eventually expire and gbrain calls will 401.
+
+If `verify` errors with "creds/params file not readable", the agent has no
+`/etc/openclaw/<agent>.brain.env` — report it as `NOT WIRED (no env file)`,
+not as a failure of this skill.
+
+---
+
+## Step 4: Roll up the report
+
+Present one table, sorted by status worst-first (down → flapping → unwired →
+healthy):
+
+```
+CONFER FLEET STATUS  (probed {ISO timestamp})
+═══════════════════════════════════════════════════════════════════════
+Agent       Host  Active   NRestarts  gbrain  refresh_cron  Verdict
+──────────  ────  ───────  ─────────  ──────  ────────────  ──────────
+aether      s7    active   0          gbrain  present       OK
+bauji       s7    active   14         gbrain  present       FLAPPING
+helios      ?     —        —          —       —             UNREACHABLE
+═══════════════════════════════════════════════════════════════════════
+```
+
+Verdict legend:
+- **OK** — `active`, low/stable `NRestarts`, `gbrain` wired, cron `present`.
+- **FLAPPING** — `active` but `NRestarts` high/climbing → recommend log triage.
+- **UNWIRED** — `active` but `gbrain=NO` or no env file → recommend `wire`.
+- **CRON-MISSING** — wired but `refresh_cron=MISSING` → tokens will expire.
+- **DOWN** — `ActiveState != active`.
+- **UNREACHABLE** — host did not answer on the correct transport.
+
+For any non-OK row, name the remediation as a **next step the operator runs**
+(e.g., "run the `fleet-ops` playbook 'Agent Not Responding' for `bauji`", or
+"re-run `confer-openclaw-gbrain-wire.sh wire bauji` on S7"). Do NOT run it.
+
+---
+
+## When a probe surfaces a blocker
+
+If a probe reveals a blocker you cannot resolve read-only (data-loss risk,
+security concern, an agent down after the operator's documented restart, or an
+unknown error pattern), do not stall — follow the escalation path in the
+**Escalation** block above, and if the queue is appropriate, hand off to
+`/confer-escalate` to post it to the whiteboard. Per the `fleet-ops`
+escalation tiers, a human is the final hop.
+
+---
+
+## Status reporting
+
+End with a Completion Status (per the preamble protocol):
+- **DONE** — every reachable agent probed; table rendered; no non-OK rows, or
+  all non-OK rows have a named next step.
+- **DONE_WITH_CONCERNS** — sweep completed but some agents are FLAPPING /
+  UNWIRED / DOWN. List them and their next steps.
+- **BLOCKED** — could not reach one or more hosts on the correct transport, or
+  the verifier is not installed on a host. State the blocker and the host.
+- **NEEDS_CONTEXT** — the roster is empty (foundation `resolver/agents.yaml`
+  absent on this checkout) so there is nothing to probe.

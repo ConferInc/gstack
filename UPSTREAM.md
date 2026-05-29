@@ -27,4 +27,4 @@ Identical to confer/gbrain: Aether → Vulcan → Yatin.
 
 ## Bun version
 
-Tracked in `.bun-version` at repo root. Floor matches upstream `engines.bun` (currently `>=1.0.0`). Aether bumps when upstream raises the floor.
+Tracked in `.bun-version` at repo root. Floor is `>=1.2.17` (the confer-agents resolver needs `Bun.YAML`, added in 1.2.17). Upstream engines.bun is lower. Aether bumps when upstream raises the floor.

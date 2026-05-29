@@ -68,7 +68,18 @@ export function loadConferFleet(yamlPath: string = AGENTS_YAML_PATH): ConferFlee
   if (!fs.existsSync(yamlPath)) return null;
 
   const parseYaml = getBunYamlParse();
-  if (!parseYaml) return null; // runtime predates Bun.YAML — degrade to no-op
+  if (!parseYaml) {
+    // Runtime predates Bun.YAML (<1.2.17). The file EXISTS but we can't parse it,
+    // so the fleet/escalation blocks would silently render empty. Warn loudly
+    // instead of a bare null so an operator regenerating docs on an old Bun sees
+    // why the roster vanished. (.bun-version floor is 1.2.17; this guards drift.)
+    console.error(
+      `[confer-agents] WARNING: ${yamlPath} exists but Bun.YAML is unavailable ` +
+      `(need Bun >= 1.2.17, have ${typeof Bun !== 'undefined' ? Bun.version : 'non-Bun runtime'}). ` +
+      `Fleet/escalation blocks will render EMPTY. Upgrade Bun and re-run gen:skill-docs.`,
+    );
+    return null;
+  }
 
   const raw = fs.readFileSync(yamlPath, 'utf-8');
   const parsed = parseYaml(raw) as Partial<ConferFleetRegistry> | null;
