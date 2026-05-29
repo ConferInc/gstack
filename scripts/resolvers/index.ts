@@ -34,6 +34,16 @@ import { generateGBrainContextLoad, generateGBrainSaveResults } from './gbrain';
 import { generateQuestionPreferenceCheck, generateQuestionLog, generateInlineTuneFeedback } from './question-tuning';
 import { generateMakePdfSetup } from './make-pdf';
 import { generateTasksSectionEmit, generateTasksSectionAggregate } from './tasks-section';
+import { generateConferFleet, generateEscalationChain, loadConferFleet } from './confer-agents';
+
+/**
+ * Confer fleet gate (SP-10). True only when resolver/agents.yaml is present and
+ * parseable — i.e. on a Confer checkout/host. On upstream garrytan/gstack the
+ * file is absent, the gate returns false, and gen-skill-docs substitutes empty
+ * string. This guarantees the Confer placeholders cannot alter upstream skill
+ * output. Mirrors gbrain.ts's host-gated suppression.
+ */
+const conferFleetGate = (): boolean => loadConferFleet() !== null;
 
 export const RESOLVERS: Record<string, ResolverValue> = {
   SLUG_EVAL: generateSlugEval,
@@ -92,4 +102,8 @@ export const RESOLVERS: Record<string, ResolverValue> = {
   MAKE_PDF_SETUP: generateMakePdfSetup,
   TASKS_SECTION_EMIT: generateTasksSectionEmit,
   TASKS_SECTION_AGGREGATE: generateTasksSectionAggregate,
+  // Confer customization layer (SP-10). Both gated on resolver/agents.yaml
+  // presence so they are NO-OPs on upstream/non-Confer hosts.
+  CONFER_FLEET: { resolve: generateConferFleet, appliesTo: conferFleetGate },
+  ESCALATION_CHAIN: { resolve: generateEscalationChain, appliesTo: conferFleetGate },
 };

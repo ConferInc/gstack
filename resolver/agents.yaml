@@ -1,0 +1,327 @@
+# resolver/agents.yaml
+#
+# SP-10 Confer fleet registry — the SINGLE SOURCE OF TRUTH for which Confer
+# OpenClaw agents exist, what they do, and who they escalate to. Consumed at
+# `bun run gen:skill-docs` time by scripts/resolvers/confer-agents.ts to render
+# the {{CONFER_FLEET}} and {{ESCALATION_CHAIN}} placeholders into fleet-aware
+# skills.
+#
+# Why a declarative YAML (not inline TS)?
+#   - Rebase-safe: this file is Confer-only and never collides with upstream
+#     garrytan/gstack. Editing the roster does not touch any upstream source.
+#   - The resolver is host-gated: if this file is absent (e.g. an upstream
+#     checkout, or a non-Confer host), the resolver is a NO-OP and the two
+#     placeholders resolve to empty string — exactly like gbrain's resolvers
+#     suppress on non-brain hosts. Upstream skill output is never altered.
+#
+# Org-hierarchy model mirrors Confer's gbrain federated_read tiers:
+#   - tier `admin`        → gbrain_sources ["*"] (full read), escalates to human
+#   - tier `t1`           → trusted-1: broad read, may include write
+#   - tier `t1+client`    → trusted-1 scoped to a specific client engagement
+#   - tier `odyssey-only` → scoped strictly to the Odyssey (ODC) engagement
+#   - tier `personal-exec`→ Yatin's personal executive surface
+#   - tier `property`     → Confer-owned infra/property agent (ops/monitoring/voice)
+# `gbrain_sources` lists the federated_read source scopes an agent may read.
+# `escalates_to` names the agent (or `human`) this agent reports blockers to;
+# the {{ESCALATION_CHAIN}} placeholder walks this until it reaches `human`.
+#
+# Roster reconciled 2026-05-29 against the canonical registry
+#   ~/Agent-Ops/30-Agent-Fleet/OpenClaw-Agent-Registry.md and
+#   ~/Agent-Ops/30-Agent-Fleet/FLEET-HIERARCHY-OVERVIEW.md.
+# Agents the canonical sources mark DELETED (the 2026-05-24 Temple cleanup:
+# Denali, Aspen, Cliff, Cedar/-1..4, Sierra, Ridge, Pine, Granite, Beacon/-1,
+# Brahma) are intentionally NOT listed — they no longer exist on the fleet.
+# Where a client assignment is genuinely unknown it is recorded as `<tbd>`
+# with a `# TODO: confirm` comment rather than guessed.
+
+version: 1
+
+defaults:
+  # gbrain federated_read endpoint the fleet reads from. Override per-agent if
+  # an agent ever points at a different brain.
+  gbrain_url: https://gbrain.confer.today
+  # Default escalation target when an agent declares none.
+  escalates_to: aether
+
+agents:
+  # ─── tier admin (full brain read, escalate straight to human) ────────────
+  - name: aether
+    role: executive
+    tier: admin
+    host: s7
+    client: null
+    gbrain_sources: ["*"]
+    escalates_to: human
+  - name: vulcan
+    role: meta-coordinator
+    tier: admin
+    host: mac-studio
+    client: null
+    gbrain_sources: ["*"]
+    escalates_to: human
+  - name: atlas
+    role: meta-coordinator
+    tier: admin
+    host: macbook
+    client: null
+    gbrain_sources: ["*"]
+    escalates_to: human
+
+  # ─── tier t1+client — account-executive dev leads (escalate to aether) ───
+  - name: prometheus
+    role: account-executive
+    tier: t1+client
+    host: s7
+    client: <tbd>   # TODO: confirm — registry lists Prometheus as a dev lead with no client binding
+    gbrain_sources: [confer-internal]
+    escalates_to: aether
+  - name: theseus
+    role: account-executive
+    tier: t1+client
+    host: s7
+    client: <tbd>   # TODO: confirm — registry shows Theseus as dev lead; no explicit client
+    gbrain_sources: [confer-internal]
+    escalates_to: aether
+  - name: perseus
+    role: account-executive
+    tier: t1+client
+    host: s7
+    client: odyssey
+    gbrain_sources: [odyssey]
+    escalates_to: aether
+  - name: daedalus
+    role: account-executive
+    tier: t1   # T1-only: client: null per spec (Daedalus is a DevOps lead, no client lane)
+    host: s7
+    client: null
+    gbrain_sources: [confer-internal]
+    escalates_to: aether
+
+  # ─── Razor team (client: razor) ──────────────────────────────────────────
+  - name: bauji
+    role: project-lead
+    tier: t1+client
+    host: s7
+    client: razor
+    gbrain_sources: [razor]
+    escalates_to: aether
+  - name: raj
+    role: backend-developer
+    tier: t1+client
+    host: s7
+    client: razor
+    gbrain_sources: [razor]
+    escalates_to: bauji
+  - name: simran
+    role: frontend-developer
+    tier: t1+client
+    host: s7
+    client: razor
+    gbrain_sources: [razor]
+    escalates_to: bauji
+
+  # ─── Odyssey team (client: odyssey, tier odyssey-only) ───────────────────
+  # NOTE: canonical registry marks the Odyssey team disabled + offline as of
+  # 2026-05-29; retained here per SP-10 spec as the org-model source of truth.
+  - name: kris
+    role: team-lead
+    tier: odyssey-only
+    host: s7
+    client: odyssey
+    gbrain_sources: [odyssey]
+    escalates_to: perseus
+  - name: grace
+    role: developer
+    tier: odyssey-only
+    host: s7
+    client: odyssey
+    gbrain_sources: [odyssey]
+    escalates_to: kris
+  - name: mini
+    role: developer
+    tier: odyssey-only
+    host: s7
+    client: odyssey
+    gbrain_sources: [odyssey]
+    escalates_to: kris
+  - name: soul
+    role: developer
+    tier: odyssey-only
+    host: s7
+    client: odyssey
+    gbrain_sources: [odyssey]
+    escalates_to: kris
+  - name: victor
+    role: developer
+    tier: odyssey-only
+    host: s7
+    client: odyssey
+    gbrain_sources: [odyssey]
+    escalates_to: kris
+  - name: zeal
+    role: developer
+    tier: odyssey-only
+    host: s7
+    client: odyssey
+    gbrain_sources: [odyssey]
+    escalates_to: kris
+
+  # ─── personal-exec & Confer property agents ──────────────────────────────
+  - name: sherpa
+    role: personal-exec
+    tier: t1   # read+write personal exec surface
+    host: s5
+    client: null
+    gbrain_sources: [confer-internal, personal]
+    escalates_to: human
+  - name: helios
+    role: ops-monitoring
+    tier: property
+    host: <tbd>   # TODO: confirm host — Confer-owned ops/monitoring property agent
+    client: null
+    gbrain_sources: [confer-ops]
+    escalates_to: aether
+  - name: echo
+    role: voice-outbound
+    tier: property
+    host: s6
+    client: null
+    gbrain_sources: [confer-ops]
+    escalates_to: perseus   # per FLEET-HIERARCHY-OVERVIEW: Echo's expected manager is Perseus
+
+  # ─── S5 Forge dev-team (StoneFactory engagement, client: stonefactory) ───
+  # Best-effort tiering: Forge is the dev_team_lead; the rest are its workers.
+  # TODO: confirm tiers + that these map to the `stonefactory` gbrain source.
+  - name: forge
+    role: dev-team-lead
+    tier: t1+client   # TODO: confirm
+    host: s5
+    client: stonefactory
+    gbrain_sources: [stonefactory]
+    escalates_to: aether
+  - name: architect
+    role: architect
+    tier: t1+client   # TODO: confirm
+    host: s5
+    client: stonefactory
+    gbrain_sources: [stonefactory]
+    escalates_to: forge
+  - name: builder-1
+    role: developer
+    tier: t1+client   # TODO: confirm
+    host: s5
+    client: stonefactory
+    gbrain_sources: [stonefactory]
+    escalates_to: forge
+  - name: builder-2
+    role: developer
+    tier: t1+client   # TODO: confirm
+    host: s5
+    client: stonefactory
+    gbrain_sources: [stonefactory]
+    escalates_to: forge
+  - name: builder-3
+    role: developer
+    tier: t1+client   # TODO: confirm
+    host: s5
+    client: stonefactory
+    gbrain_sources: [stonefactory]
+    escalates_to: forge
+  - name: tester-1
+    role: tester
+    tier: t1+client   # TODO: confirm
+    host: s5
+    client: stonefactory
+    gbrain_sources: [stonefactory]
+    escalates_to: forge
+  - name: tester-2
+    role: tester
+    tier: t1+client   # TODO: confirm
+    host: s5
+    client: stonefactory
+    gbrain_sources: [stonefactory]
+    escalates_to: forge
+  - name: reviewer
+    role: reviewer
+    tier: t1+client   # TODO: confirm
+    host: s5
+    client: stonefactory
+    gbrain_sources: [stonefactory]
+    escalates_to: forge
+  - name: qa
+    role: qa
+    tier: t1+client   # TODO: confirm
+    host: s5
+    client: stonefactory
+    gbrain_sources: [stonefactory]
+    escalates_to: forge
+  - name: deployer
+    role: deployer
+    tier: t1+client   # TODO: confirm
+    host: s5
+    client: stonefactory
+    gbrain_sources: [stonefactory]
+    escalates_to: forge
+  - name: requirements
+    role: requirements-analyst   # absorbed former Scout role 2026-05-16
+    tier: t1+client   # TODO: confirm
+    host: s5
+    client: stonefactory
+    gbrain_sources: [stonefactory]
+    escalates_to: forge
+
+  # ─── S5 marketing / ingestion ─────────────────────────────────────────────
+  - name: cmo
+    role: chief-marketing-officer
+    tier: t1   # TODO: confirm tier — marketing ops, HubSpot/Paperclip-facing
+    host: s5
+    client: null
+    gbrain_sources: [confer-internal, paperclip]
+    escalates_to: aether
+  - name: scribe
+    role: ingestion   # WhatsApp transcript ingest, no responses
+    tier: t1   # TODO: confirm tier — ingestion-only sidecar
+    host: s5
+    client: null
+    gbrain_sources: [confer-internal]
+    escalates_to: aether
+
+  # ─── S7 Telegram-only / standalone ───────────────────────────────────────
+  - name: gopal
+    role: telegram-assistant   # only surviving Temple agent; not on Paperclip mesh
+    tier: t1+client
+    client: rkt   # RK Temple (@Gopal_rkt_bot) — TODO: confirm client slug
+    host: s7
+    gbrain_sources: [rkt]
+    escalates_to: theseus
+  - name: orion
+    role: developer   # agent ID is `main`, not `orion`
+    tier: t1+client   # TODO: confirm
+    host: s7
+    client: <tbd>   # TODO: confirm — reports to Prometheus, no explicit client
+    gbrain_sources: [confer-internal]
+    escalates_to: prometheus
+
+  # ─── S6 Hermes sidecars / Paperclip-native (infra, out of work chains) ───
+  # TODO: confirm — sidecars are infra observers; tier `property` is best-effort.
+  - name: argos
+    role: fleet-observer
+    tier: property   # TODO: confirm
+    host: s6
+    client: null
+    gbrain_sources: [confer-ops]
+    escalates_to: aether
+  - name: keeper
+    role: observability-steward
+    tier: property   # TODO: confirm
+    host: s6
+    client: null
+    gbrain_sources: [confer-ops]
+    escalates_to: aether
+  - name: praxis
+    role: coolify-deployer
+    tier: property   # TODO: confirm
+    host: s6
+    client: null
+    gbrain_sources: [confer-ops]
+    escalates_to: aether
