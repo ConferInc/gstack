@@ -648,7 +648,11 @@ If you are looping on the same diagnostic, same file, or failed fix variants, ST
 
 Before each AskUserQuestion, choose `question_id` from `scripts/question-registry.ts` or `{skill}-{slug}`, then run `~/.claude/skills/gstack/bin/gstack-question-preference --check "<id>"`. `AUTO_DECIDE` means choose the recommended option and say "Auto-decided [summary] → [option] (your preference). Change with /plan-tune." `ASK_NORMALLY` means ask.
 
-After answer, log best-effort:
+**Embed the question_id as a marker in the question text** so hooks can identify it deterministically (plan-tune cathedral T14 / D18 progressive markers). Append `<gstack-qid:{question_id}>` somewhere in the rendered question (the leading line or trailing line is fine; the marker doesn't render visibly to the user when wrapped in HTML-style angle brackets, but the hook strips it). Without the marker the PreToolUse enforcement hook treats the AUQ as observed-only and never auto-decides — so always include it when the question matches a registered `question_id`.
+
+**Embed the option recommendation via the `(recommended)` label suffix** on exactly one option per AUQ. The PreToolUse hook parses `(recommended)` first, falls back to "Recommendation: X" prose, and refuses to auto-decide if ambiguous. Two `(recommended)` labels = refuse.
+
+After answer, log best-effort (PostToolUse hook also captures deterministically when installed; dedup on (source, tool_use_id) handles double-writes):
 ```bash
 ~/.claude/skills/gstack/bin/gstack-question-log '{"skill":"setup-gbrain","question_id":"<id>","question_summary":"<short>","category":"<approval|clarification|routing|cherry-pick|feedback-loop>","door_type":"<one-way|two-way>","options_count":N,"user_choice":"<key>","recommended":"<key>","session_id":"'"$_SESSION_ID"'"}' 2>/dev/null || true
 ```
@@ -1558,6 +1562,75 @@ Confirms the round trip. On failure, surface `gbrain doctor --json` output
 and STOP with a NEEDS_CONTEXT escalation.
 
 ---
+
+## Step 9.5: Brain trust policy (v1.48 brain-aware planning, D4 / Phase 1.5)
+
+The brain trust policy controls whether gstack auto-pushes `~/.gstack/`
+artifacts and writes calibration takes back to this brain. It's per-
+endpoint: a user with both a local PGLite (personal) and a team remote
+MCP (shared) gets both policies tracked separately.
+
+Detect the active endpoint hash + current policy:
+
+```bash
+_HASH=$(~/.claude/skills/gstack/bin/gstack-config endpoint-hash 2>/dev/null)
+_POLICY=$(~/.claude/skills/gstack/bin/gstack-config get brain_trust_policy@$_HASH 2>/dev/null || echo unset)
+echo "ENDPOINT_HASH: $_HASH"
+echo "BRAIN_TRUST_POLICY: $_POLICY"
+```
+
+Branch on transport + current policy:
+
+**If `_POLICY` is `personal` or `shared`:** policy already set. Print
+"Trust policy for this endpoint: $_POLICY" and skip to Step 10.
+
+**If `_POLICY` is `unset` AND `_HASH == "local"`:** auto-set personal
+(local engines are inherently single-tenant). No AskUserQuestion.
+
+```bash
+~/.claude/skills/gstack/bin/gstack-config set brain_trust_policy@$_HASH personal
+echo "Trust policy auto-set to 'personal' for local PGLite (single-tenant by construction)."
+```
+
+**If `_POLICY` is `unset` AND `_HASH != "local"` (remote MCP):** ask the
+trust policy question via AskUserQuestion:
+
+> The brain at this MCP endpoint — is it your personal brain or a
+> shared/team brain?
+>
+> Personal: gstack auto-pushes ~/.gstack/ artifacts (CEO plans, design
+> docs, retros, learnings) and writes calibration takes back as you make
+> decisions. Your brain gets smarter every session. Pick this if you
+> alone set up this brain.
+>
+> Shared/team: read-only by default. gstack reads context but prompts
+> before any write. Safer for brains where your individual takes
+> shouldn't pollute the shared corpus.
+
+Options:
+- A) Personal (recommended for self-hosted remote brains)
+- B) Shared/team
+
+After answer, persist:
+
+```bash
+~/.claude/skills/gstack/bin/gstack-config set brain_trust_policy@$_HASH <personal|shared>
+```
+
+If `personal` was selected AND `artifacts_sync_mode` is still `off`, also
+default it to `full` (D4 auto-push convention):
+
+```bash
+_CURRENT_SYNC=$(~/.claude/skills/gstack/bin/gstack-config get artifacts_sync_mode 2>/dev/null || echo off)
+if [ "$_CURRENT_SYNC" = "off" ]; then
+  ~/.claude/skills/gstack/bin/gstack-config set artifacts_sync_mode full
+  echo "artifacts_sync_mode auto-set to 'full' (personal brain default)."
+fi
+```
+
+Backwards compat: existing users whose `artifacts_sync_mode_prompted` is
+already `true` keep their answer; this gate only fires for new endpoints
+or first-time-after-upgrade users.
 
 ## Step 10: GREEN/YELLOW/RED verdict block (idempotent doctor output)
 

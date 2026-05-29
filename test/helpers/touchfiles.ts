@@ -191,6 +191,13 @@ export const E2E_TOUCHFILES: Record<string, string[]> = {
   // /plan-tune (v1 observational)
   'plan-tune-inspect':         ['plan-tune/**', 'scripts/question-registry.ts', 'scripts/psychographic-signals.ts', 'scripts/one-way-doors.ts', 'bin/gstack-question-log', 'bin/gstack-question-preference', 'bin/gstack-developer-profile'],
 
+  // /plan-tune cathedral (T16 — 5 E2E scenarios, all gate per D12)
+  'plan-tune-hook-capture':      ['hosts/claude/hooks/**', 'bin/gstack-question-log', 'bin/gstack-developer-profile', 'plan-tune/**'],
+  'plan-tune-enforcement':       ['hosts/claude/hooks/**', 'bin/gstack-question-preference', 'scripts/question-registry.ts'],
+  'plan-tune-annotation':        ['hosts/claude/hooks/**', 'scripts/declared-annotation.ts', 'scripts/psychographic-signals.ts', 'scripts/question-registry.ts'],
+  'plan-tune-codex-import':      ['bin/gstack-codex-session-import', 'bin/gstack-question-log', 'docs/spikes/codex-session-format.md'],
+  'plan-tune-dream-cycle':       ['bin/gstack-distill-free-text', 'bin/gstack-distill-apply', 'hosts/claude/hooks/**', 'plan-tune/**'],
+
   // Codex offering verification
   'codex-offered-office-hours':  ['office-hours/**', 'scripts/gen-skill-docs.ts'],
   'codex-offered-ceo-review':    ['plan-ceo-review/**', 'scripts/gen-skill-docs.ts'],
@@ -378,6 +385,35 @@ export const E2E_TOUCHFILES: Record<string, string[]> = {
   // /spec end-to-end via PTY — exercises the full Phase 1→5 pipeline
   // including --execute spawn. Periodic-tier — paid + non-deterministic.
   'spec-execute':     ['spec/**', 'test/skill-e2e-spec-execute.test.ts'],
+
+  // /office-hours brain-writeback path under fake gbrain CLI (v1.50.0.0
+  // T7). Drives /office-hours with a regenerated SKILL.md that has the
+  // compressed GBRAIN_SAVE_RESULTS block + a fake gbrain on PATH; asserts
+  // the agent calls `gbrain put office-hours/<slug>` with valid YAML
+  // frontmatter. Touched by anything that changes resolver output, gen
+  // pipeline, detection helper, refresh subcommand, or the on-demand
+  // docs the resolver points to.
+  'office-hours-brain-writeback': [
+    'scripts/resolvers/gbrain.ts',
+    'scripts/gen-skill-docs.ts',
+    'bin/gstack-gbrain-detect',
+    'bin/gstack-config',
+    'office-hours/SKILL.md.tmpl',
+    'docs/gbrain-write-surfaces.md',
+    'test/fixtures/office-hours-brain-writeback/**',
+    'test/skill-e2e-office-hours-brain-writeback.test.ts',
+  ],
+
+  // gbrain CLI real round-trip against a local PGLite store (v1.50.0.0
+  // T11). Proves the gbrain CLI persistence contract gstack relies on —
+  // a `gbrain put` followed by `gbrain get` returns the body. Skips if
+  // VOYAGE_API_KEY is unset OR gbrain CLI not on PATH. Touched by the
+  // resolver (which emits the CLI shape) and the test itself.
+  'gbrain-roundtrip-local': [
+    'scripts/resolvers/gbrain.ts',
+    'test/skill-e2e-gbrain-roundtrip-local.test.ts',
+  ],
+
 };
 
 /**
@@ -425,6 +461,13 @@ export const E2E_TIERS: Record<string, 'gate' | 'periodic'> = {
 
   // Office Hours
   'office-hours-spec-review': 'gate',
+  // Brain-writeback E2E — periodic per cost (claude -p) + non-deterministic
+  // (model interprets the gbrain instruction). Matches nearby
+  // setup-gbrain-path4-* tier classification.
+  'office-hours-brain-writeback': 'periodic',
+  // GBrain CLI round-trip — periodic per Voyage embedding cost (~$0.001/run)
+  // and external-API-dependency (skips cleanly if VOYAGE_API_KEY unset).
+  'gbrain-roundtrip-local': 'periodic',
   'office-hours-forcing-energy': 'gate',       // V1.1 mode-posture regression gate (Sonnet generator)
   // 'office-hours-builder-wildness' retiered to periodic in v1.32 contributor
   // wave: this is an LLM-judge creativity score (axis_a ≥4 on a "wildness"
@@ -527,6 +570,13 @@ export const E2E_TIERS: Record<string, 'gate' | 'periodic'> = {
 
   // /plan-tune — gate (core v1 DX promise: plain-English intent routing)
   'plan-tune-inspect': 'gate',
+
+  // /plan-tune cathedral (T16 per D12 — all gate)
+  'plan-tune-hook-capture': 'gate',
+  'plan-tune-enforcement': 'gate',
+  'plan-tune-annotation': 'gate',
+  'plan-tune-codex-import': 'gate',
+  'plan-tune-dream-cycle': 'gate',
 
   // Codex offering verification
   'codex-offered-office-hours': 'gate',
