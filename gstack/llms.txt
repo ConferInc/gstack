@@ -18,6 +18,10 @@ Conventions:
 - [/careful](careful/SKILL.md): Safety guardrails for destructive commands.
 - [/claude](claude/SKILL.md): Claude Code CLI wrapper for non-Claude hosts - three modes.
 - [/codex](codex/SKILL.md): OpenAI Codex CLI wrapper — three modes.
+- [/confer-brain-ingest](confer-brain-ingest/SKILL.md): Ingest a local markdown tree (or one page) into a Confer gbrain source and embed it.
+- [/confer-client-onboard](confer-client-onboard/SKILL.md): Scaffold a new Confer client engagement: create an ISOLATED gbrain source, mint a per-agent OAuth client, register the source, and add an infra-inventory entry.
+- [/confer-escalate](confer-escalate/SKILL.md): Route a blocker up the Confer org hierarchy and post it to the whiteboard decision queue instead of stalling.
+- [/confer-fleet-status](confer-fleet-status/SKILL.md): Report Confer OpenClaw fleet health across S5/S7/S8 — per-agent ActiveState/NRestarts, gbrain MCP wiring, and token-refresh crons.
 - [/context-restore](context-restore/SKILL.md): Restore working context saved earlier by /context-save.
 - [/context-save](context-save/SKILL.md): Save working context.
 - [/cso](cso/SKILL.md): Chief Security Officer mode.

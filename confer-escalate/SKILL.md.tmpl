@@ -1,0 +1,185 @@
+---
+name: confer-escalate
+preamble-tier: 2
+version: 1.0.0
+description: |
+  Route a blocker up the Confer org hierarchy and post it to the whiteboard
+  decision queue instead of stalling. Resolves the current agent's
+  escalates_to path from the SP-10 fleet registry, then reuses the existing
+  whiteboard + escalation-router mechanism. Use when asked to "escalate this",
+  "I'm blocked", "post a decision", "route this to a human", or "I need a
+  decision". (gstack)
+triggers:
+  - escalate this
+  - I'm blocked
+  - post a decision
+  - route this to a human
+  - I need a decision
+allowed-tools:
+  - Bash
+  - Read
+  - Write
+  - AskUserQuestion
+---
+
+{{PREAMBLE}}
+
+# /confer-escalate — Route a blocker up the org chain to the whiteboard
+
+You are a **Confer fleet agent that never silently stalls**. When you hit a
+decision or blocker you cannot resolve autonomously, you post it to the
+async whiteboard queue, address it to the right next hop in your escalation
+chain, and then keep working on everything else. A human answers when
+convenient; you pick up the answer on the next iteration.
+
+**Core principle (from the whiteboard skill):** No agent STOPS because it needs
+a human decision. Post → continue → pick up the answer later.
+
+{{CONFER_FLEET}}
+
+{{ESCALATION_CHAIN}}
+
+---
+
+## How this composes existing tooling
+
+This skill does NOT invent a queue. It reuses two existing pieces and adds the
+SP-10 org-chain routing on top:
+
+1. **The `whiteboard` skill** (`~/.claude/skills/whiteboard/SKILL.md`) — the
+   async decision queue: `pending/` → `answered/` → `archived/`, a
+   `QUEUE.md` index, and the decision-file format (urgency, category,
+   options, agent recommendation, auto-resolve). The queue lives under
+   `~/agent-bridge/whiteboard/`.
+2. **The `escalation-router` skill** (`~/.claude/skills/escalation-router/SKILL.md`)
+   — when to escalate vs. just decide, and the `create-decision.sh` /
+   `check-answers.sh` helpers that write the decision file and update
+   `QUEUE.md`.
+
+The **new** part this skill adds: the `escalates_to` chain above (rendered
+from `resolver/agents.yaml` for the current agent via the SP-10 foundation)
+tells you WHO the decision is addressed to. Address only the next hop in the
+chain — do not skip levels straight to `human` unless that hop IS `human`.
+
+---
+
+## Step 0: Decide whether to escalate at all
+
+Per the `escalation-router` rules, escalate ONLY when:
+- a decision has significant tradeoffs with no clearly superior option, or
+- policy / compliance / business judgment is needed, or
+- cost or scope exceeds your authority, or
+- you have gone back and forth on an approach for >2 iterations.
+
+Do NOT escalate a reversible, low-risk technical choice, or anything answered
+by existing docs/code. If it is decidable, decide it and document the rationale
+— posting trivia to the whiteboard wastes human attention.
+
+---
+
+## Step 1: Identify the next hop from your chain
+
+Your escalation chain is rendered in the **Escalation** block above (walked
+from `resolver/agents.yaml` for the current agent — taken from `$CONFER_AGENT`
+if set, else the skill context). The decision is **addressed to the first hop
+after you**. Example: if the chain is `raj → bauji → aether → human`, this
+decision is addressed to `bauji`.
+
+If you are not a registered fleet agent (the block says so), address the
+decision to **human** directly.
+
+---
+
+## Step 2: Compose the decision
+
+Gather, via AskUserQuestion if not already known (per the preamble format):
+- **title** — short, specific (e.g. "Auth strategy for the Razor API").
+- **urgency / priority** — 🔴 BLOCKING / 🟡 IMPORTANT / 🟢 ADVISORY (whiteboard
+  levels; `high`/`medium`/`low` for the router helper).
+- **context** — what you were doing, file paths, constraints.
+- **the question** — the actual decision needed.
+- **options** — at least two, each with pros/cons.
+- **your recommendation + rationale** — always give your best judgment; never
+  post optionless.
+
+---
+
+## Step 3: Post to the queue (reuse the router helper)
+
+Prefer the `escalation-router` helper, which writes the correctly-formatted
+decision file into `whiteboard/pending/` and appends to `QUEUE.md` atomically.
+Run it from the agent-bridge repo (`~/agent-bridge`); set `--agent` to the NEXT
+HOP from Step 1 so the decision is addressed up-chain:
+
+```bash
+cd ~/agent-bridge
+bash scripts/create-decision.sh \
+  --title "<title>" \
+  --agent "<next-hop-from-chain>" \
+  --priority "<high|medium|low>" \
+  --blocking "<task-or-loop-id>" \
+  --context "<what you were doing; file paths; constraints>" \
+  --question "<the decision needed>" \
+  --option "<Option A — desc / pros / cons>" \
+  --option "<Option B — desc / pros / cons>" \
+  --recommendation "1" \
+  --rationale "<why you recommend that option>"
+```
+
+If `create-decision.sh` is not present on this machine, fall back to writing
+the file by hand: create
+`~/agent-bridge/whiteboard/pending/DECISION-<NNN>-<short-desc>.md` using the
+verbatim template in the `whiteboard` skill, then append a one-liner row to
+`~/agent-bridge/whiteboard/QUEUE.md`. Do not overwrite an existing
+`DECISION-<NNN>` — bump the number.
+
+The helper prints the decision id; record it.
+
+---
+
+## Step 4: Log it and keep working
+
+- Note the decision id in your current task notes / STATE.md: "Blocked on
+  DECISION-<NNN>, addressed to <next-hop>".
+- For 🔴 BLOCKING: pause only the related work; move to unrelated tasks.
+- For 🟡/🟢: work around it; for 🟢 ADVISORY, proceed with your recommendation
+  after the auto-resolve window if no answer arrives.
+- Do NOT block the session waiting for a human.
+
+---
+
+## Step 5: Check for answers (on a later run)
+
+On a subsequent iteration, pick up any answer addressed to you:
+
+```bash
+cd ~/agent-bridge
+bash scripts/check-answers.sh --agent "<your-agent-name>"
+```
+
+This scans `whiteboard/answered/`, prints the human response, moves the file to
+`whiteboard/archived/`, and updates `QUEUE.md`. Apply the decision, then clear
+the "blocked" note from your task notes.
+
+---
+
+## Important rules
+
+- **Address up-chain, one hop at a time.** Use the rendered chain; never skip
+  levels (except when your next hop genuinely is `human`).
+- **Never post without a recommendation.** Always give your best judgment.
+- **Never stop all work.** Post and continue.
+- **No secrets in the decision file.** It is committed to a git-backed queue —
+  never paste tokens, credentials, or raw client PII into context/options.
+
+## Status reporting
+
+End with a Completion Status (per the preamble protocol):
+- **DONE** — decision posted to `whiteboard/pending/`, `QUEUE.md` updated,
+  addressed to the correct next hop, decision id recorded.
+- **DONE_WITH_CONCERNS** — posted via the hand-written fallback (helper
+  absent), or had to address `human` directly because the agent is unregistered.
+- **BLOCKED** — `~/agent-bridge/whiteboard/` is unreachable/unwritable. State it.
+- **NEEDS_CONTEXT** — the decision is under-specified (no real options or
+  recommendation), or it is trivial enough that escalation is the wrong move —
+  recommend deciding it inline instead.
