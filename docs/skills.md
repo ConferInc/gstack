@@ -46,6 +46,12 @@ Detailed guides for every gstack skill — philosophy, workflow, and examples.
 | [`/setup-gbrain`](#setup-gbrain) | **Memory Sync** | Set up gbrain for cross-machine session memory sync. One command from zero to live. |
 | [`/sync-gbrain`](#sync-gbrain) | **Keep Brain Current** | Refresh gbrain against this repo's code; teach the agent when to use `gbrain search`/`code-def` over Grep. Idempotent; safe to re-run. |
 | | | |
+| **Confer Customization Layer (SP-10)** | | |
+| [`/confer-fleet-status`](#confer-fleet-status) | **Fleet Health** | Read-only fleet health across S5/S7/S8: per-agent ActiveState/NRestarts, gbrain wiring, refresh crons. Confer hosts only. |
+| [`/confer-brain-ingest`](#confer-brain-ingest) | **Brain Ingest** | Ingest a local markdown tree (or one page) into a Confer gbrain source and embed it. Idempotent. |
+| [`/confer-escalate`](#confer-escalate) | **Org Escalation** | Route a blocker up the org chain and post it to the whiteboard decision queue instead of stalling. |
+| [`/confer-client-onboard`](#confer-client-onboard) | **Client Onboarding** | Scaffold a new client engagement: isolated gbrain source, per-agent OAuth client, registration, infra-inventory entry. |
+| | | |
 | **Safety & Utility** | | |
 | [`/careful`](#safety--guardrails) | **Safety Guardrails** | Warns before destructive commands (rm -rf, DROP TABLE, force-push, git reset --hard). Override any warning. Common build cleanups whitelisted. |
 | [`/freeze`](#safety--guardrails) | **Edit Lock** | Restrict all file edits to a single directory. Blocks Edit and Write outside the boundary. Accident prevention for debugging. |
@@ -1259,3 +1265,27 @@ Convenience wrapper. The structural Release-build guard against shipping DebugBr
 ## `/ios-sync`
 
 Run after upgrading gstack or adding new `@Observable` classes. Detects what's installed, runs gen-accessors against the latest upstream templates, refreshes any changed Swift files, verifies the app rebuilds. Cache-key invalidation handles Swift version changes, generator git rev changes, and source changes.
+
+---
+
+## `/confer-fleet-status`
+
+Confer customization layer (SP-10). Read-only health sweep of the Confer OpenClaw fleet across S5/S7/S8. Groups the SP-10 fleet roster (`resolver/agents.yaml`) by host, runs the fleet-ops liveness probes, then runs `confer-openclaw-gbrain-wire.sh verify <agent>` per agent to report ActiveState, NRestarts, gbrain MCP wiring, and the 12h token-refresh cron. Renders a worst-first status table and names the remediation next step for any non-OK row — never restarts or re-wires anything itself. Confer hosts only (no-op without the SP-10 foundation).
+
+---
+
+## `/confer-brain-ingest`
+
+Confer customization layer (SP-10). Ingest a local markdown tree (or a single page) into a named Confer gbrain source and embed it, via the verified `confer-brain-ingest.sh` pipeline (tar → scp → docker cp → import → embed) against the gbrain container on S1, reached through the jump host. Dry-runs first, picks tree / `--recursive` / `--single-page` mode deliberately, and verifies the source landed. Idempotent — unchanged pages are skipped by content hash.
+
+---
+
+## `/confer-escalate`
+
+Confer customization layer (SP-10). Route a blocker up the Confer org hierarchy and post it to the async whiteboard decision queue instead of stalling. Resolves the current agent's `escalates_to` chain from the SP-10 fleet registry, addresses the decision to the correct next hop, and reuses the existing whiteboard + escalation-router mechanism (`create-decision.sh` / `check-answers.sh`). Posts with a recommendation, then keeps working; picks up the human's answer on a later run.
+
+---
+
+## `/confer-client-onboard`
+
+Confer customization layer (SP-10). Runbook to scaffold a new client engagement: create an ISOLATED gbrain source (`gbrain sources add <id> --no-federated`), mint a per-agent OAuth client (`gbrain auth register-client`), register the source, and add an infra-inventory entry. Isolation-first — a new client's brain never federates into another's — and zero secret values touch any tracked file (only the non-secret `client_id` is recorded; the secret goes to the agent's host-side creds file out-of-band).

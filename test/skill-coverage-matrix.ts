@@ -190,4 +190,13 @@ export const SKILL_COVERAGE: Record<string, SkillCoverage> = {
   health: { gate: ['test/skill-coverage-floor.test.ts'], periodic: [] },
   'make-pdf': { gate: ['test/skill-coverage-floor.test.ts'], periodic: [] },
   'devex-review': { gate: ['test/skill-coverage-floor.test.ts'], periodic: [] },
+
+  // ─── Confer customization layer (SP-10) ─────────────────────
+  // Confer-only wrapper skills around the real fleet-ops / gbrain tooling.
+  // Structural floor is the eval-first minimum; behavior is exercised by the
+  // underlying scripts' own checks, which are out of this repo's test scope.
+  'confer-fleet-status': { gate: ['test/skill-coverage-floor.test.ts'], periodic: [] },
+  'confer-brain-ingest': { gate: ['test/skill-coverage-floor.test.ts'], periodic: [] },
+  'confer-escalate': { gate: ['test/skill-coverage-floor.test.ts'], periodic: [] },
+  'confer-client-onboard': { gate: ['test/skill-coverage-floor.test.ts'], periodic: [] },
 };

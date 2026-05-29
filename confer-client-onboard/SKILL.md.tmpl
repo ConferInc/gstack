@@ -1,0 +1,221 @@
+---
+name: confer-client-onboard
+preamble-tier: 2
+version: 1.0.0
+description: |
+  Scaffold a new Confer client engagement: create an ISOLATED gbrain source,
+  mint a per-agent OAuth client, register the source, and add an
+  infra-inventory entry. Runbook-style skill documenting the exact gbrain CLI
+  commands — isolation-first so a new client's brain never federates into
+  another's. Use when asked to "onboard a client", "set up a new engagement",
+  "create a client brain", or "scaffold a new client". (gstack)
+triggers:
+  - onboard a client
+  - set up a new engagement
+  - create a client brain
+  - scaffold a new client
+allowed-tools:
+  - Bash
+  - Read
+  - Write
+  - Edit
+  - AskUserQuestion
+---
+
+{{PREAMBLE}}
+
+# /confer-client-onboard — Scaffold a new client engagement
+
+You are a **Confer onboarding operator standing up a new client engagement**.
+Your job is to create the isolated knowledge + auth scaffolding for a new
+client: a dedicated gbrain source that does NOT federate into any other
+client's brain, a per-agent OAuth client scoped to that source, the source
+registration, and an infra-inventory record. This is a runbook — run the
+commands deliberately, verify each step, and stop on any failure.
+
+**ISOLATION IS THE WHOLE POINT.** A client engagement's brain must never be
+readable from another client's agents. Every source you create here is
+`--no-federated`, and the OAuth client you mint is scoped to exactly that
+source. Federation is opt-in and out of scope for onboarding.
+
+**Reference tone:** this skill mirrors `/setup-gbrain` and `/sync-gbrain` —
+verify prerequisites, run idempotent CLI commands, print a verdict block. The
+gbrain CLI is the source of truth; run `gbrain <cmd> --help` if a flag name has
+drifted, and prefer what the CLI prints over what is written here.
+
+---
+
+## Step 0: Gather engagement parameters
+
+Ask (AskUserQuestion per the preamble format) for, at minimum:
+- **client slug** — short, kebab-case, unique (e.g. `acme`, `moxi`,
+  `razor`). Becomes the source-id stem and the inventory key. Validate it
+  against `^[a-z0-9][a-z0-9-]*$` — reject anything else.
+- **source-id** — defaults to the client slug (e.g. `acme`). This is the
+  isolated gbrain source.
+- **agent name** — the OpenClaw agent that will read this source (e.g. the
+  client's project-lead agent). The OAuth client is minted for it.
+- **scope** — default `read` for a read-only client agent; `read write` only
+  if the agent ingests into the brain itself.
+
+Before creating anything, confirm the source-id does not already exist (Step 1
+short-circuits if it does — never clobber an existing client's source).
+
+---
+
+## Step 1: Pre-flight — confirm gbrain CLI + no collision
+
+```bash
+gbrain --version || { echo "gbrain CLI not installed — run /setup-gbrain first"; exit 1; }
+# Collision check: a source with this id must NOT already exist.
+gbrain sources list --json 2>/dev/null | grep -q "\"id\":\"<source-id>\"" \
+  && echo "COLLISION: source <source-id> already exists — STOP, pick a new id" \
+  || echo "ok: <source-id> is free"
+```
+
+If the source already exists, STOP and surface it — onboarding an existing
+client over the top risks cross-contaminating an established brain.
+
+---
+
+## Step 2: Create the ISOLATED gbrain source
+
+Create the source with federation explicitly OFF so it cannot be read from any
+other client's federated view:
+
+```bash
+gbrain sources add <source-id> --no-federated
+```
+
+`--no-federated` is the isolation guarantee — without it the source would join
+the default federated read set. Verify it landed isolated:
+
+```bash
+gbrain sources list --json 2>/dev/null \
+  | grep -A3 "\"id\":\"<source-id>\"" \
+  | grep -i 'federated' || echo "(no federated flag → isolated, as intended)"
+```
+
+---
+
+## Step 3: Mint a per-agent OAuth client
+
+Mint an OAuth client scoped to the new agent + source. This prints a
+`client_id` and a `client_secret` ONCE:
+
+```bash
+# Verified against gbrain v0.41.26+ (2026-05-29). Name is POSITIONAL.
+# --source binds the client to the isolated source (the whole point of isolation).
+# --grant-types client_credentials + client_secret_post = a machine client.
+# NOTE the flag is --scopes (plural); --scope silently does nothing.
+gbrain auth register-client "<agent-name>" \
+  --grant-types client_credentials \
+  --scopes "<scope>" \
+  --source "<source-id>" \
+  --token-endpoint-auth-method client_secret_post
+```
+
+`<scope>` is a single space-separated string, e.g. `"agent read write"` (the
+CLI splits it). Do NOT pass an interactive/PKCE client (no `--redirect-uri`) —
+that yields `grant_types=authorization_code` with no secret, which cannot do
+the `client_credentials` token exchange the fleet agents use.
+
+**SECRET HANDLING — do not leak.** The printed `client_secret` is shown once.
+- NEVER write the secret into any file in this repo, the inventory entry, the
+  skill output transcript, or a commit. This skill must produce zero secret
+  values in any tracked file.
+- The secret belongs in the agent's host-side creds file
+  `/etc/openclaw/<agent>.brain.env` (chmod 600) on the agent's server — the
+  same file `confer-openclaw-gbrain-wire.sh` reads. Instruct the operator to
+  place it there out-of-band (e.g. via the secret channel in
+  `~/Documents/Yatin's Brain/Secrets/`), then wire the agent with
+  `confer-openclaw-gbrain-wire.sh wire <agent>` on that host.
+- Record only the **`client_id`** (non-secret) and the agent/source mapping in
+  the inventory (Step 5).
+
+If `register-client` is not available in the installed gbrain build, surface
+the `gbrain auth --help` output and STOP — do not improvise a token.
+
+---
+
+## Step 4: Register / seed the source content (optional, deferred)
+
+The source now exists but is empty. Initial content ingest is a separate,
+deliberate step — do NOT auto-ingest client material during onboarding. When
+the client's docs are ready, ingest them with `/confer-brain-ingest` against
+this `<source-id>` (it embeds so semantic search works). Note this as the
+recommended next step; do not run it here.
+
+---
+
+## Step 5: Add an infra-inventory entry
+
+Record the engagement so the fleet has a durable, non-secret map of which agent
+reads which isolated source. The Confer inventory lives in the ops vault
+(`~/Agent-Ops/40-Systems-and-Servers/`); the SP-10 fleet roster is
+`resolver/agents.yaml` in this repo. Add an entry capturing ONLY non-secret
+fields:
+
+```yaml
+# infra inventory entry — NO SECRETS
+client: <client-slug>
+gbrain_source: <source-id>
+federated: false            # isolation-first
+agent: <agent-name>
+oauth_client_id: <client_id>   # NOT the secret
+scope: <scope>
+onboarded: <YYYY-MM-DD>
+```
+
+If the new agent should appear in the SP-10 fleet registry, also add it to
+`resolver/agents.yaml` with `gbrain_sources: [<source-id>]` and the correct
+`escalates_to` — that keeps the rendered fleet-roster and escalation-chain
+blocks in sync across all fleet-aware skills. (Editing `agents.yaml` is an
+explicit, reviewed change — propose it, don't silently commit it as part of
+onboarding.)
+
+---
+
+## Step 6: Verdict block
+
+Print a doctor-style status block (mirrors `/setup-gbrain` Step 10):
+
+```
+client onboard: <client-slug>
+
+  gbrain CLI ......... OK    <version>
+  Source created ..... OK    <source-id> (federated=false, ISOLATED)
+  OAuth client ....... OK    client_id=<client_id> (secret handled out-of-band)
+  Inventory entry .... OK    <where recorded>
+  agents.yaml ........ N/A   (propose separately if agent joins the fleet)
+  Next: place client_secret in /etc/openclaw/<agent>.brain.env on the agent
+        host, then run confer-openclaw-gbrain-wire.sh wire <agent>.
+        Ingest client docs with /confer-brain-ingest <source-id> <dir>.
+```
+
+Any RED row gets a one-line next action.
+
+---
+
+## Important rules
+
+- **Isolation-first.** Every source created here is `--no-federated`. Never
+  add a new client source to the federated read set during onboarding.
+- **Zero secrets in tracked files.** The OAuth `client_secret` never touches
+  this repo, the inventory, or any commit. Only the `client_id` is recorded.
+- **No collision clobber.** Never re-create an existing source-id.
+- **Don't auto-ingest.** Onboarding scaffolds; content ingest is a separate,
+  deliberate `/confer-brain-ingest` run.
+
+## Status reporting
+
+End with a Completion Status (per the preamble protocol):
+- **DONE** — isolated source created and verified non-federated, OAuth client
+  minted (secret handled out-of-band), inventory entry recorded, next steps
+  printed.
+- **DONE_WITH_CONCERNS** — source + client created, but a follow-up is
+  outstanding (e.g. `agents.yaml` edit pending review, or the secret still
+  needs placing on the agent host). List what remains.
+- **BLOCKED** — gbrain CLI missing, `register-client` unavailable in this
+  build, or a source-id collision. State the blocker.
+- **NEEDS_CONTEXT** — client slug / source-id / agent name missing or invalid.

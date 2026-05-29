@@ -105,6 +105,15 @@ End-to-end walkthrough: [docs/howto-ios-testing-with-gstack.md](docs/howto-ios-t
 | `/unfreeze` | Remove directory edit restrictions. |
 | `/make-pdf` | Turn any markdown file into a publication-quality PDF. |
 
+### Confer customization layer (SP-10, Confer hosts only)
+
+| Skill | What it does |
+|-------|-------------|
+| `/confer-fleet-status` | Read-only fleet health across S5/S7/S8: per-agent ActiveState/NRestarts, gbrain wiring, refresh crons. Wraps fleet-ops + confer-openclaw-gbrain-wire.sh verify. |
+| `/confer-brain-ingest` | Ingest a local markdown tree (or one page) into a Confer gbrain source + embed. Wraps confer-brain-ingest.sh. |
+| `/confer-escalate` | Route a blocker up the org chain and post it to the whiteboard decision queue. Uses the SP-10 escalation chain + whiteboard/escalation-router. |
+| `/confer-client-onboard` | Scaffold a new client engagement: isolated gbrain source, per-agent OAuth client, source registration, infra-inventory entry. |
+
 ## Build commands
 
 ```bash

@@ -124,12 +124,18 @@ describe('{{ESCALATION_CHAIN}} — escalation walking', () => {
     }
   });
 
-  test('unknown agent gets a generic escalate-to-human line', () => {
+  test('unknown agent (gen-time, no CONFER_AGENT) renders the FULL escalation reference, not a dead fallback', () => {
     const prev = process.env.CONFER_AGENT;
     delete process.env.CONFER_AGENT;
     try {
       const out = generateEscalationChain(makeCtx({ skillName: 'definitely-not-an-agent' }));
-      expect(out).toContain('not a registered Confer fleet agent');
+      // The old buggy behavior baked a misleading "not a registered agent" line
+      // into every shipped SKILL.md. New behavior: emit the full per-agent
+      // reference table so the block is always accurate regardless of reader.
+      expect(out).not.toContain('not a registered Confer fleet agent');
+      expect(out).toContain('## Escalation');
+      expect(out).toContain('Escalation paths by agent');
+      expect(out).toContain('| Agent |');
       expect(out).toContain('**human**');
     } finally {
       if (prev !== undefined) process.env.CONFER_AGENT = prev;
@@ -164,15 +170,24 @@ describe('gating — absent registry is a strict NO-OP', () => {
     expect(simulate('ESCALATION_CHAIN', false)).toBe('');
   });
 
-  test('the Confer placeholders are NOT referenced by any upstream SKILL.md.tmpl', () => {
+  test('the Confer placeholders are NOT referenced by any UPSTREAM SKILL.md.tmpl', () => {
     // Belt-and-suspenders: the gate makes suppression structural, but the
     // foundation also wires NOTHING into upstream templates. If a future
     // template author adds {{CONFER_FLEET}} to an upstream skill, this test
     // flags it so the gating assumption stays honest.
+    //
+    // The SP-10 `confer-*` skills (the Confer customization layer itself) ARE
+    // the intended consumers of these placeholders — they live in `confer-`
+    // prefixed dirs and are themselves Confer-only/host-gated, so they are
+    // exempt. The guard's job is to keep the placeholders out of UPSTREAM
+    // (garrytan/gstack) skills, which never carry the `confer-` prefix.
     const tmpls: string[] = [];
     const walk = (dir: string) => {
       for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
         if (entry.name === 'node_modules' || entry.name.startsWith('.')) continue;
+        // Skip the Confer customization-layer skill dirs — they are the
+        // legitimate consumers of {{CONFER_FLEET}} / {{ESCALATION_CHAIN}}.
+        if (entry.isDirectory() && entry.name.startsWith('confer-')) continue;
         const full = path.join(dir, entry.name);
         if (entry.isDirectory()) walk(full);
         else if (entry.name.endsWith('.tmpl')) tmpls.push(full);

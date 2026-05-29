@@ -1,0 +1,166 @@
+---
+name: confer-brain-ingest
+preamble-tier: 2
+version: 1.0.0
+description: |
+  Ingest a local markdown tree (or one page) into a Confer gbrain source and
+  embed it. Wraps the verified confer-brain-ingest.sh pipeline (tar → scp →
+  docker cp → import → embed) against the gbrain container on S1, reached via
+  the jump host. Idempotent and re-runnable. Use when asked to "ingest into
+  the brain", "index docs into gbrain", "refresh a brain source", or "add this
+  folder to the brain". (gstack)
+triggers:
+  - ingest into the brain
+  - index docs into gbrain
+  - refresh brain source
+  - add folder to gbrain
+allowed-tools:
+  - Bash
+  - Read
+  - Grep
+  - AskUserQuestion
+---
+
+{{PREAMBLE}}
+
+# /confer-brain-ingest — Ingest a local dir into a Confer gbrain source
+
+You are a **knowledge-base steward loading content into the Confer brain**.
+Your job is to take a local markdown directory (or a single page) and ingest
+it into a named gbrain source on S1, then embed it so semantic search works —
+using the verified, idempotent pipeline, never a hand-rolled one.
+
+This skill is a thin wrapper around the real tooling:
+`~/Workspace/Confer/Code/confer-fleet-ops/bin/confer-brain-ingest.sh`. Read
+that script's header before running — it is the source of truth for flags and
+behavior. The pipeline tars the source dir (excluding `.git`, `node_modules`,
+`bridge`, `*.bak`, `.obsidian`, `.DS_Store`), scps the tarball to S1 through
+the jump host, `docker cp`s it into the gbrain container, runs
+`GBRAIN_SOURCE=<id> gbrain import --no-embed`, then `gbrain embed --stale`, and
+cleans up staging. Re-running only re-chunks/re-embeds files whose content
+hash changed, so it is safe on a cron.
+
+---
+
+## Step 0: Gather the two required arguments
+
+The script takes a **source-id** and a **local path**, plus optional flags.
+If the user did not give both, ask (AskUserQuestion per the preamble format):
+
+- **source-id** — the gbrain source the pages are attributed to. Known Confer
+  source ids include `confer-ops` (~/Agent-Ops), `confer-internal`
+  (~/company-memory), and `los` (LoS docs). The source must already exist on
+  the brain — this skill ingests INTO a source; it does not create one (use
+  `/confer-client-onboard` to mint a new isolated source).
+- **local path** — a directory for tree/recursive mode, or a single file for
+  `--single-page`.
+
+Pick the mode deliberately (this is the most common footgun, called out in the
+script header):
+
+- **Tree mode (default)** — `gbrain import` collects ONLY top-level `*.md` of
+  the directory. Nested files are silently skipped. Use when the content is a
+  flat folder of markdown.
+- **`--recursive`** — walks every `*.md` at any depth and `gbrain put`s each
+  (slug = path relative to the dir, minus `.md`). Use for a nested tree. One
+  ssh hop per file (slower, exact). `put` always embeds, so `--no-embed` is
+  ignored here.
+- **`--single-page <slug>`** — one file piped to `gbrain put <slug>`. Use for a
+  single page or when the slug must differ from the path.
+
+---
+
+## Step 1: Dry-run first (always)
+
+Never ingest blind. Run `--dry-run` to print every step (tar/scp/docker
+exec) without writing anything, and show the resolved container + mode banner:
+
+```bash
+~/Workspace/Confer/Code/confer-fleet-ops/bin/confer-brain-ingest.sh \
+  <source-id> <local-path> --dry-run
+```
+
+Read back the banner to the user: the `source-id`, resolved `source` path, the
+`mode` line (tree / recursive / single-page), and the `embed` line. Confirm
+this matches their intent before the real run. If the banner shows tree mode
+but the user expected nested files ingested, switch to `--recursive`.
+
+---
+
+## Step 2: Real ingest
+
+Run the same command without `--dry-run`. Pass through the user's flags
+verbatim — do not paraphrase paths or slugs:
+
+```bash
+# Tree mode (top-level *.md), import + embed --stale:
+~/Workspace/Confer/Code/confer-fleet-ops/bin/confer-brain-ingest.sh \
+  <source-id> <local-dir>
+
+# Nested tree (every *.md at any depth):
+~/Workspace/Confer/Code/confer-fleet-ops/bin/confer-brain-ingest.sh \
+  <source-id> <local-dir> --recursive
+
+# Single page with an explicit slug:
+~/Workspace/Confer/Code/confer-fleet-ops/bin/confer-brain-ingest.sh \
+  <source-id> <local-file> --single-page <slug>
+
+# Keyword-only now, embed later (tree mode only; --single-page/--recursive
+# always embed):
+~/Workspace/Confer/Code/confer-fleet-ops/bin/confer-brain-ingest.sh \
+  <source-id> <local-dir> --no-embed
+```
+
+The script is `set -euo pipefail` and rolls its own staging cleanup; let it run
+to completion. It prints numbered stage markers (`[1/6]`…`[6/6]` in tree mode).
+If it exits non-zero, surface its stderr verbatim and STOP — do not retry with
+different flags blindly.
+
+### S1 reachability
+
+S1 (`144.126.158.171`) is **reachable only via the jump host**
+(`yatin@207.244.254.194`); direct ssh is fail2ban-jailed. The script defaults
+to a ProxyJump-aware invocation, so it works out of the box. If stage `[0]`
+("Resolving gbrain container") fails with no container found, the jump hop or
+the container name filter is the problem — report it; do not edit `~/.ssh/config`.
+
+---
+
+## Step 3: Verify the source landed
+
+The script prints verify commands at the end. Run the source-list check
+(read-only) to confirm the page count moved:
+
+```bash
+ssh -J yatin@207.244.254.194 root@144.126.158.171 \
+  "docker exec \$(docker ps -qf name=mx9lg4wzkivr5fcfwafo5j6j | head -1) \
+   gbrain sources list | grep <source-id>"
+```
+
+Spot-check one ingested slug with `gbrain get <slug>` (the exact command is in
+the script's closing output). If `--no-embed` was used, remind the user that
+semantic search stays empty until `gbrain embed --stale` runs for that source.
+
+---
+
+## Important rules
+
+- **No secrets in output.** The pipeline carries no credentials in args; never
+  echo container ids, tokens, or env contents beyond what the script prints.
+- **Idempotent.** Re-running is safe and cheap — unchanged pages are skipped by
+  content hash. When unsure whether a prior run finished, just re-run.
+- **Source must pre-exist.** This skill ingests into an existing source. To
+  create a brand-new isolated source for a client, use `/confer-client-onboard`.
+
+## Status reporting
+
+End with a Completion Status (per the preamble protocol):
+- **DONE** — ingest completed; source-list verify shows the source present and
+  the page count consistent with the input.
+- **DONE_WITH_CONCERNS** — ran with `--no-embed` (search not yet live), or tree
+  mode silently skipped nested files the user may have wanted (recommend
+  `--recursive`).
+- **BLOCKED** — S1 unreachable through the jump host, container not found, or
+  the script exited non-zero. State the failing stage.
+- **NEEDS_CONTEXT** — source-id or local path missing/ambiguous, or the target
+  source does not exist on the brain yet.
