@@ -107,6 +107,13 @@ function conferFleetPresent(): boolean {
 /** Format one agent's client field for display. */
 function clientLabel(client: ConferAgent['client']): string {
   if (client === null || client === undefined) return 'internal';
+  // A genuinely-unknown client binding is recorded in agents.yaml as the
+  // placeholder `<tbd>` (with a `# TODO: confirm` note) rather than guessed.
+  // That token is meaningful internal signal, but must NEVER ship verbatim into
+  // a rendered roster an operator reads — surface it as a clean, honest label.
+  // Future-proofs any new `<tbd>`/blank entry against the GS-INC-6 leak.
+  const trimmed = client.trim();
+  if (trimmed === '' || trimmed === '<tbd>') return 'unassigned';
   return client;
 }
 

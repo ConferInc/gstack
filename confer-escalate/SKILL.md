@@ -737,8 +737,8 @@ your direct subordinates; escalate blockers up your chain (see escalation path).
 | `aether` | executive | admin | internal |
 | `vulcan` | meta-coordinator | admin | internal |
 | `atlas` | meta-coordinator | admin | internal |
-| `prometheus` | account-executive | t1+client | <tbd> |
-| `theseus` | account-executive | t1+client | <tbd> |
+| `prometheus` | account-executive | t1+client | unassigned |
+| `theseus` | account-executive | t1+client | unassigned |
 | `perseus` | account-executive | t1+client | odyssey |
 | `daedalus` | account-executive | t1 | internal |
 | `bauji` | project-lead | t1+client | razor |
@@ -767,7 +767,7 @@ your direct subordinates; escalate blockers up your chain (see escalation path).
 | `cmo` | chief-marketing-officer | t1 | internal |
 | `scribe` | ingestion | t1 | internal |
 | `gopal` | telegram-assistant | t1+client | rkt |
-| `orion` | developer | t1+client | <tbd> |
+| `orion` | developer | t1+client | unassigned |
 | `argos` | fleet-observer | property | internal |
 | `keeper` | observability-steward | property | internal |
 | `praxis` | coolify-deployer | property | internal |

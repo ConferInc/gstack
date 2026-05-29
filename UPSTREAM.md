@@ -1,8 +1,8 @@
 # Upstream Pinning Policy — confer/gstack
 
 **Upstream:** https://github.com/garrytan/gstack
-**Pinned SHA:** 19770ea8b41da3e79c510a2c80d1aad3f34d4075
-**Pinned at:** 2026-05-27
+**Pinned SHA:** 070722ac (merged via 777f3efa on 2026-05-29; supersedes 19770ea8)
+**Pinned at:** 2026-05-29
 
 ## Rebase cadence
 

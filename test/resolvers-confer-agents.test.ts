@@ -90,6 +90,16 @@ describe('{{CONFER_FLEET}} — roster rendering', () => {
     expect(out).toMatch(/`raj`.*razor/);
     expect(out).toMatch(/`aether`.*internal/);
   });
+
+  test('never ships the raw `<tbd>` placeholder — renders it as `unassigned` (GS-INC-6)', () => {
+    const out = generateConferFleet(makeCtx());
+    // The `<tbd>` token is meaningful in agents.yaml (a "confirm this binding"
+    // signal) but must never leak into a rendered roster an operator reads.
+    expect(out).not.toContain('<tbd>');
+    // Agents with a genuinely-unknown client (e.g. prometheus/theseus/orion)
+    // surface as a clean, honest label instead.
+    expect(out).toMatch(/`prometheus`.*unassigned/);
+  });
 });
 
 describe('{{ESCALATION_CHAIN}} — escalation walking', () => {
