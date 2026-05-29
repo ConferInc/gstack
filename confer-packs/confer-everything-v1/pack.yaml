@@ -20,12 +20,13 @@ name: confer-everything-v1
 version: 0.1.0
 gbrain_min_version: 0.42.0
 extends: gbrain-base-v2
-description: |
-  Confer's company-wide pack. One brain (per Garry's principal-pattern),
-  one pack covering: org, own products (LoS, Paperclip), client engagements
-  (StoneFactory, AadTech, Razor, Odyssey, others), and the cross-cutting
-  content-process types (plans, designs, retros, learnings, decisions, specs).
-  Sources segregate the data, not the pack.
+# NOTE: single-line description ON PURPOSE. gbrain's pack loader uses a
+# hand-rolled mini-YAML parser (loader.ts parseYamlMini) that does NOT support
+# block scalars (`|`/`>`). A `description: |` multi-line block makes the parser
+# break out of the top-level mapping early, silently dropping page_types/
+# link_types/takes_kinds (manifest then falls back to schema defaults = 0 types).
+# Keep this a single line.
+description: "Confer company-wide pack — org, own products (LoS, Paperclip), client engagements (StoneFactory, AadTech, Razor, Odyssey, and others), plus cross-cutting content-process types (plans, designs, retros, learnings, decisions, specs). Sources segregate the data, not the pack."
 
 # ─── DOMAIN AXIS ───────────────────────────────────────────────────────────
 page_types:
@@ -43,11 +44,7 @@ page_types:
     primitive: temporal
     # Literal prefixes only — upstream link-inference.ts treats path_prefixes as
     # literal prefix matches, not globs. Enumerate per source.
-    path_prefixes: [confer-internal/contracts/, sf/contracts/, at/contracts/,
-                    los/contracts/, paperclip/contracts/, razor/contracts/,
-                    moxi/contracts/, rkt/contracts/, aa/contracts/,
-                    flex/contracts/, jkyog/contracts/, dfl/contracts/,
-                    narada/contracts/, odyssey/contracts/]
+    path_prefixes: [confer-internal/contracts/, sf/contracts/, at/contracts/, los/contracts/, paperclip/contracts/, razor/contracts/, moxi/contracts/, rkt/contracts/, aa/contracts/, flex/contracts/, jkyog/contracts/, dfl/contracts/, narada/contracts/, odyssey/contracts/]
     extractable: true
   - name: customer-org
     primitive: entity
@@ -59,11 +56,7 @@ page_types:
     extractable: false
   - name: project
     primitive: concept
-    path_prefixes: [confer-internal/projects/, sf/projects/, at/projects/,
-                    los/projects/, paperclip/projects/, razor/projects/,
-                    moxi/projects/, rkt/projects/, aa/projects/, flex/projects/,
-                    jkyog/projects/, dfl/projects/, narada/projects/,
-                    odyssey/projects/]
+    path_prefixes: [confer-internal/projects/, sf/projects/, at/projects/, los/projects/, paperclip/projects/, razor/projects/, moxi/projects/, rkt/projects/, aa/projects/, flex/projects/, jkyog/projects/, dfl/projects/, narada/projects/, odyssey/projects/]
     extractable: false
 
   # LoS product (mortgage)
@@ -151,9 +144,7 @@ page_types:
     extractable: false
   - name: invoice
     primitive: temporal
-    path_prefixes: [sf/invoices/, paperclip/invoices/, los/invoices/,
-                    at/invoices/, razor/invoices/, moxi/invoices/,
-                    confer-internal/invoices/]
+    path_prefixes: [sf/invoices/, paperclip/invoices/, los/invoices/, at/invoices/, razor/invoices/, moxi/invoices/, confer-internal/invoices/]
     extractable: true
   - name: supplier
     primitive: entity
@@ -187,11 +178,7 @@ page_types:
     extractable: false
   - name: incident
     primitive: temporal
-    path_prefixes: [at/incidents/, sf/incidents/, los/incidents/,
-                    paperclip/incidents/, confer-ops/incidents/,
-                    confer-internal/incidents/, razor/incidents/, moxi/incidents/,
-                    rkt/incidents/, aa/incidents/, flex/incidents/, jkyog/incidents/,
-                    dfl/incidents/, narada/incidents/, odyssey/incidents/]
+    path_prefixes: [at/incidents/, sf/incidents/, los/incidents/, paperclip/incidents/, confer-ops/incidents/, confer-internal/incidents/, razor/incidents/, moxi/incidents/, rkt/incidents/, aa/incidents/, flex/incidents/, jkyog/incidents/, dfl/incidents/, narada/incidents/, odyssey/incidents/]
     extractable: true
 
 # ─── CONTENT-PROCESS AXIS (orthogonal to domain) ───────────────────────────
@@ -200,43 +187,27 @@ page_types:
   # gets an explicit prefix line below. Add new sources by extending each list.
   - name: plan
     primitive: concept
-    path_prefixes: [agent-context/plans/, confer-internal/plans/, confer-ops/plans/,
-                    los/plans/, paperclip/plans/, sf/plans/, at/plans/,
-                    razor/plans/, moxi/plans/, rkt/plans/, aa/plans/,
-                    flex/plans/, jkyog/plans/, dfl/plans/, narada/plans/, odyssey/plans/]
+    path_prefixes: [agent-context/plans/, confer-internal/plans/, confer-ops/plans/, los/plans/, paperclip/plans/, sf/plans/, at/plans/, razor/plans/, moxi/plans/, rkt/plans/, aa/plans/, flex/plans/, jkyog/plans/, dfl/plans/, narada/plans/, odyssey/plans/]
     extractable: false               # plans are referenced wholesale, not chunked
   - name: design
     primitive: concept
-    path_prefixes: [confer-internal/designs/, confer-ops/designs/, los/designs/,
-                    paperclip/designs/, sf/designs/, at/designs/, razor/designs/,
-                    moxi/designs/, rkt/designs/, aa/designs/, flex/designs/,
-                    jkyog/designs/, dfl/designs/, narada/designs/, odyssey/designs/]
+    path_prefixes: [confer-internal/designs/, confer-ops/designs/, los/designs/, paperclip/designs/, sf/designs/, at/designs/, razor/designs/, moxi/designs/, rkt/designs/, aa/designs/, flex/designs/, jkyog/designs/, dfl/designs/, narada/designs/, odyssey/designs/]
     extractable: false
   - name: retro
     primitive: concept
-    path_prefixes: [agent-context/retros/, confer-internal/retros/, confer-ops/retros/,
-                    los/retros/, paperclip/retros/, sf/retros/, at/retros/,
-                    razor/retros/, moxi/retros/, rkt/retros/, aa/retros/,
-                    flex/retros/, jkyog/retros/, dfl/retros/, narada/retros/, odyssey/retros/]
+    path_prefixes: [agent-context/retros/, confer-internal/retros/, confer-ops/retros/, los/retros/, paperclip/retros/, sf/retros/, at/retros/, razor/retros/, moxi/retros/, rkt/retros/, aa/retros/, flex/retros/, jkyog/retros/, dfl/retros/, narada/retros/, odyssey/retros/]
     extractable: true
   - name: learning
     primitive: concept
-    path_prefixes: [agent-context/learnings/, confer-internal/learnings/,
-                    confer-ops/learnings/, los/learnings/, paperclip/learnings/,
-                    sf/learnings/, at/learnings/, razor/learnings/, moxi/learnings/,
-                    rkt/learnings/, aa/learnings/, flex/learnings/, jkyog/learnings/,
-                    dfl/learnings/, narada/learnings/, odyssey/learnings/]
+    path_prefixes: [agent-context/learnings/, confer-internal/learnings/, confer-ops/learnings/, los/learnings/, paperclip/learnings/, sf/learnings/, at/learnings/, razor/learnings/, moxi/learnings/, rkt/learnings/, aa/learnings/, flex/learnings/, jkyog/learnings/, dfl/learnings/, narada/learnings/, odyssey/learnings/]
     extractable: true                # learnings ARE searchable insight chunks
   - name: decision
     primitive: concept
-    path_prefixes: [confer-internal/decision-logs/, confer-ops/decisions/,
-                    los/decisions/, paperclip/decisions/, sf/decisions/, at/decisions/,
-                    razor/decisions/, moxi/decisions/]
+    path_prefixes: [confer-internal/decision-logs/, confer-ops/decisions/, los/decisions/, paperclip/decisions/, sf/decisions/, at/decisions/, razor/decisions/, moxi/decisions/]
     extractable: false
   - name: spec
     primitive: concept
-    path_prefixes: [confer-internal/specs/, confer-ops/specs/, los/specs/,
-                    paperclip/specs/, sf/specs/, at/specs/, razor/specs/, moxi/specs/]
+    path_prefixes: [confer-internal/specs/, confer-ops/specs/, los/specs/, paperclip/specs/, sf/specs/, at/specs/, razor/specs/, moxi/specs/]
     extractable: false
   - name: skill_registration
     primitive: annotation
@@ -244,53 +215,83 @@ page_types:
     extractable: false               # skill metadata pages — see §6.7 step 10
 
 # ─── RELATIONSHIPS ─────────────────────────────────────────────────────────
+# NOTE: block form (name:/inverse: on separate lines) ON PURPOSE. The mini-YAML
+# parser (loader.ts) does NOT support inline flow-mappings `- { name: x, ... }`
+# (it mis-reads the key as "{ name"). Keep each link as a 2-line block entry.
 link_types:
   # Org-level
-  - { name: employed_by, inverse: employs }
-  - { name: reports_to,  inverse: reports_from }
-  - { name: signed,      inverse: signed_by }
-  - { name: owns_product, inverse: owned_by }
-  - { name: billed_to,   inverse: bills }
-  - { name: engaged_with, inverse: engaged_by }
+  - name: employed_by
+    inverse: employs
+  - name: reports_to
+    inverse: reports_from
+  - name: signed
+    inverse: signed_by
+  - name: owns_product
+    inverse: owned_by
+  - name: billed_to
+    inverse: bills
+  - name: engaged_with
+    inverse: engaged_by
 
   # LoS
-  - { name: borrower_of, inverse: has_borrower }
-  - { name: conditions_required_for, inverse: requires_conditions }
-  - { name: document_supports, inverse: supported_by }
-  - { name: milestone_blocks, inverse: blocked_by }
-  - { name: orchestrated_by, inverse: orchestrates }
+  - name: borrower_of
+    inverse: has_borrower
+  - name: conditions_required_for
+    inverse: requires_conditions
+  - name: document_supports
+    inverse: supported_by
+  - name: milestone_blocks
+    inverse: blocked_by
+  - name: orchestrated_by
+    inverse: orchestrates
 
   # Paperclip
-  - { name: belongs_to_account, inverse: contains_contact }
-  - { name: generated_by, inverse: generated }
-  - { name: responded_to, inverse: received_response }
-  - { name: surfaces_signal, inverse: surfaced_by }
+  - name: belongs_to_account
+    inverse: contains_contact
+  - name: generated_by
+    inverse: generated
+  - name: responded_to
+    inverse: received_response
+  - name: surfaces_signal
+    inverse: surfaced_by
 
   # StoneFactory
-  - { name: shipped_to, inverse: received_shipment }
-  - { name: sourced_from, inverse: supplied }
-  - { name: priced_at_tier, inverse: applies_to }
-  - { name: stored_at, inverse: stores }
+  - name: shipped_to
+    inverse: received_shipment
+  - name: sourced_from
+    inverse: supplied
+  - name: priced_at_tier
+    inverse: applies_to
+  - name: stored_at
+    inverse: stores
 
   # AadTech
-  - { name: deployed_at, inverse: hosts }
-  - { name: triggered_by, inverse: triggers }
-  - { name: supersedes_firmware, inverse: superseded_by }
+  - name: deployed_at
+    inverse: hosts
+  - name: triggered_by
+    inverse: triggers
+  - name: supersedes_firmware
+    inverse: superseded_by
 
-  # ─── Epistemology lineage (replaces invented claim_genealogy table) ───
-  # Per principal decision: extend existing links primitive rather than
-  # creating a parallel lineage table.
-  - { name: refined_from,    inverse: refined_to }       # hunch → fact iteration
-  - { name: contradicted_by, inverse: contradicts }
-  - { name: escalated_from,  inverse: escalated_to }     # take → world_knowledge
-  # Upstream `supersedes` link is also used for the "this claim replaces that one" case.
+  # Epistemology lineage (extend existing links primitive, not a parallel table)
+  - name: refined_from
+    inverse: refined_to
+  - name: contradicted_by
+    inverse: contradicts
+  - name: escalated_from
+    inverse: escalated_to
 
-  # ─── Content-process edges ───
-  - { name: plan_for,           inverse: planned_by }
-  - { name: retro_of,           inverse: retroed_in }
-  - { name: learning_from,      inverse: produced_learning }
-  - { name: decision_about,     inverse: decided_in }
-  - { name: spec_implements,    inverse: implemented_by_spec }
+  # Content-process edges
+  - name: plan_for
+    inverse: planned_by
+  - name: retro_of
+    inverse: retroed_in
+  - name: learning_from
+    inverse: produced_learning
+  - name: decision_about
+    inverse: decided_in
+  - name: spec_implements
+    inverse: implemented_by_spec
 
 # ─── TAKES KIND TAXONOMY ───────────────────────────────────────────────────
 # Pack-level configuration. `world_knowledge` is now a FIRST-CLASS kind as of
