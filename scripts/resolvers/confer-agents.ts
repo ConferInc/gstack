@@ -180,22 +180,28 @@ export function buildEscalationChain(registry: ConferFleetRegistry, startName: s
 }
 
 /**
- * {{ESCALATION_CHAIN}} — escalation path for the current agent. The agent is
- * taken from the CONFER_AGENT env var when set, else from ctx.skillName. If the
- * agent isn't in the registry, emits a generic "escalate to human" line so the
- * skill still has guidance.
+ * {{ESCALATION_CHAIN}} — escalation path for the current agent. Identity comes
+ * ONLY from the CONFER_AGENT env var (an explicit build-/run-time opt-in), never
+ * from ctx.skillName. Deriving identity from the skill name would mis-fire
+ * whenever a skill's name coincides with a fleet agent's name — e.g. the
+ * upstream `qa` skill vs the `qa` fleet agent (GS2H-2) — baking the wrong
+ * agent's chain into an unrelated skill. With no CONFER_AGENT set (the normal
+ * gen-skill-docs case) we always render the full per-agent reference table,
+ * which is correct for every shipped confer skill (none is named after an
+ * agent). Set CONFER_AGENT=<your-name> to scope the block to a single chain.
  */
-export function generateEscalationChain(ctx: TemplateContext): string {
+export function generateEscalationChain(_ctx: TemplateContext): string {
   const registry = loadConferFleet();
   if (!registry) return '';
 
-  const agentName = process.env.CONFER_AGENT?.trim() || ctx.skillName;
-  const known = registry.agents.some(a => a.name === agentName);
+  const agentName = process.env.CONFER_AGENT?.trim();
 
-  // Specific-agent path: only when CONFER_AGENT (or a skillName that is an
-  // actual fleet agent) resolves to a registered agent — i.e. the skill is
-  // running AS that agent. Renders that one agent's chain.
-  if (known) {
+  // Specific-agent path: only when CONFER_AGENT names a registered fleet agent
+  // — i.e. the skill is being generated/run AS that agent. Renders that one
+  // agent's chain. A skill name that happens to match an agent NEVER triggers
+  // this (collision-proof by construction; the inline guard also narrows
+  // agentName to a definite string for buildEscalationChain).
+  if (agentName && registry.agents.some(a => a.name === agentName)) {
     const chain = buildEscalationChain(registry, agentName);
     const rendered = chain.map(n => (n === 'human' ? '**human**' : `\`${n}\``)).join(' → ');
     return `## Escalation
@@ -207,13 +213,13 @@ ${rendered}
 Address only your direct manager (the next hop); do not skip levels.`;
   }
 
-  // Gen-time / unknown-agent path: CONFER_AGENT is not set (this is what
-  // happens when gen-skill-docs renders the static SKILL.md — ctx.skillName is
-  // the SKILL name, not a fleet agent). DON'T bake a misleading "you are not
-  // registered → human" line. Instead emit the FULL escalation reference for
-  // every agent, so whoever runs the skill (operator, or an agent acting on
-  // behalf of another) can find the right chain. Deterministic + always
-  // accurate; auto-scopes to a single chain when CONFER_AGENT is set at runtime.
+  // Gen-time / no-CONFER_AGENT path: this is the normal gen-skill-docs case
+  // (CONFER_AGENT unset). DON'T bake a misleading "you are not registered →
+  // human" line, and DON'T guess identity from the skill name. Instead emit the
+  // FULL escalation reference for every agent, so whoever runs the skill
+  // (operator, or an agent acting on behalf of another) can find the right
+  // chain. Deterministic + always accurate; scopes to a single chain only when
+  // CONFER_AGENT is explicitly set.
   const rows = registry.agents
     .slice()
     .sort((a, b) => a.name.localeCompare(b.name))

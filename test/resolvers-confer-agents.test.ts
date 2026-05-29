@@ -113,21 +113,36 @@ describe('{{ESCALATION_CHAIN}} — escalation walking', () => {
     expect(buildEscalationChain(reg, 'aether')).toEqual(['aether', 'human']);
   });
 
-  test('resolver output names the chain for a registered agent (via skillName)', () => {
-    const out = generateEscalationChain(makeCtx({ skillName: 'raj' }));
-    expect(out).toContain('## Escalation');
-    expect(out).toContain('`raj`');
-    expect(out).toContain('`bauji`');
-    expect(out).toContain('**human**');
+  test('skillName is NOT an identity source — a skill named like a fleet agent renders the full table, never that agent lone chain (GS2H-2)', () => {
+    const prev = process.env.CONFER_AGENT;
+    delete process.env.CONFER_AGENT;
+    try {
+      // `qa` is BOTH a gstack skill dir AND a fleet agent name. With no
+      // CONFER_AGENT set, the resolver must NOT bake qa's lone chain into a
+      // skill that happens to be named `qa` — it renders the full per-agent
+      // reference table. Collision-proof by construction.
+      const out = generateEscalationChain(makeCtx({ skillName: 'qa' }));
+      expect(out).toContain('## Escalation');
+      expect(out).toContain('Escalation paths by agent');
+      expect(out).toContain('| Agent |');
+      // full table ⇒ many agents present, not just `qa`'s single chain
+      expect(out).toContain('`aether`');
+      expect(out).toContain('`raj`');
+    } finally {
+      if (prev !== undefined) process.env.CONFER_AGENT = prev;
+    }
   });
 
-  test('CONFER_AGENT env var overrides skillName', () => {
+  test('CONFER_AGENT selects the specific single-agent chain', () => {
     const prev = process.env.CONFER_AGENT;
     process.env.CONFER_AGENT = 'simran';
     try {
+      // skillName is irrelevant; only CONFER_AGENT drives identity.
       const out = generateEscalationChain(makeCtx({ skillName: 'not-an-agent' }));
       expect(out).toContain('`simran`');
       expect(out).toContain('`bauji`');
+      // single chain, not the full reference table
+      expect(out).not.toContain('Escalation paths by agent');
     } finally {
       if (prev === undefined) delete process.env.CONFER_AGENT;
       else process.env.CONFER_AGENT = prev;
