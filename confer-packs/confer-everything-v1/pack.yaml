@@ -1,13 +1,19 @@
 # confer/gbrain-packs/confer-everything-v1/pack.yaml
 #
-# STATUS: DRAFT (v0.1.0, committed 2026-05-29). NOT yet active on the live brain.
-#   - Targets gbrain_min_version 0.42.0; the live brain is 0.41.26.0 (sp1a-v10) —
-#     activate only after the gbrain 0.42.0 bump.
-#   - The `world_knowledge` take-kind needs upstream gbrain code changes
-#     (src/core/facts/classify.ts + engine.ts FactKind enum) — tracked as a
-#     separate sub-project; see the takes_kinds note below.
-#   The pack currently live on the brain is the smaller SP-3 definition; this file
-#   is the forward-looking superset, committed to preserve the design (SP-10).
+# STATUS: READY TO APPLY (v0.1.0). NOT yet active on the live brain — pending the
+# gbrain 0.42 image deploy on S1 (the live brain still serves an older image; the
+# currently-active pack is an empty 0-type stub, so applying this is also the fix
+# for that).
+#   - Targets gbrain_min_version 0.42.0. confer-gbrain `confer/main` is now at
+#     0.42.0.0 with the world_knowledge code merged; activate once that image is
+#     deployed.
+#   - `world_knowledge` is now BUILT (merged to confer/main): the classifier
+#     (src/core/facts/world-knowledge.ts) + the consensus-refresh promotion minion
+#     (src/core/facts/consensus-refresh.ts, `gbrain takes consensus-refresh`).
+#     First live promotion run is supervised (--dry-run first; confirm the
+#     take-only / single-link / 0.8-threshold semantics).
+#   This file is the full superset (~40 page_types + link verbs); applying it
+#   replaces the empty active stub and loads the real typed taxonomy.
 #
 api_version: gbrain-schema-pack-v1
 name: confer-everything-v1
@@ -287,13 +293,15 @@ link_types:
   - { name: spec_implements,    inverse: implemented_by_spec }
 
 # ─── TAKES KIND TAXONOMY ───────────────────────────────────────────────────
-# Pack-level configuration. Note: `world_knowledge` requires upstream code
-# changes in `src/core/facts/classify.ts` + `engine.ts` FactKind enum to be
-# fully wired through extract.ts. Until that lands (separate sub-project),
-# `world_knowledge` is represented as a `take_proposals` row with
-# kind='take' + escalated_from link to its origin claim + computed
-# world_consensus ≥ 0.8.
-takes_kinds: [fact, take, bet, hunch]
+# Pack-level configuration. `world_knowledge` is now a FIRST-CLASS kind as of
+# Confer-fork gbrain 0.42.0.0. A `take` graduates to `world_knowledge` when it
+# carries an `escalated_from` lineage link AND its computed world_consensus
+# ≥ 0.8. Implemented in the TAKES system (not the FactKind/classify dedup path,
+# which the original note misidentified): src/core/facts/world-knowledge.ts
+# (the classifier/promotion rule) + src/core/facts/consensus-refresh.ts (the
+# promotion minion, run via `gbrain takes consensus-refresh [--dry-run]`).
+# Requires gbrain_min_version 0.42.0 (declared above) — activate post-deploy.
+takes_kinds: [fact, take, bet, hunch, world_knowledge]
 
 # ─── EXTRACTION TUNING ─────────────────────────────────────────────────────
 # Inherits gbrain-base-v2 defaults; per-type prompt_template overrides
