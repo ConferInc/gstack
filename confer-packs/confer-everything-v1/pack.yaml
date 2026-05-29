@@ -1,0 +1,300 @@
+# confer/gbrain-packs/confer-everything-v1/pack.yaml
+#
+# STATUS: DRAFT (v0.1.0, committed 2026-05-29). NOT yet active on the live brain.
+#   - Targets gbrain_min_version 0.42.0; the live brain is 0.41.26.0 (sp1a-v10) —
+#     activate only after the gbrain 0.42.0 bump.
+#   - The `world_knowledge` take-kind needs upstream gbrain code changes
+#     (src/core/facts/classify.ts + engine.ts FactKind enum) — tracked as a
+#     separate sub-project; see the takes_kinds note below.
+#   The pack currently live on the brain is the smaller SP-3 definition; this file
+#   is the forward-looking superset, committed to preserve the design (SP-10).
+#
+api_version: gbrain-schema-pack-v1
+name: confer-everything-v1
+version: 0.1.0
+gbrain_min_version: 0.42.0
+extends: gbrain-base-v2
+description: |
+  Confer's company-wide pack. One brain (per Garry's principal-pattern),
+  one pack covering: org, own products (LoS, Paperclip), client engagements
+  (StoneFactory, AadTech, Razor, Odyssey, others), and the cross-cutting
+  content-process types (plans, designs, retros, learnings, decisions, specs).
+  Sources segregate the data, not the pack.
+
+# ─── DOMAIN AXIS ───────────────────────────────────────────────────────────
+page_types:
+  # Org layer (Confer the company)
+  - name: employee
+    primitive: entity
+    path_prefixes: [confer-internal/employees/, confer-ops/people/]
+    extractable: false
+    expert_routing: true
+  - name: vendor
+    primitive: entity
+    path_prefixes: [confer-internal/vendors/]
+    extractable: false
+  - name: contract
+    primitive: temporal
+    # Literal prefixes only — upstream link-inference.ts treats path_prefixes as
+    # literal prefix matches, not globs. Enumerate per source.
+    path_prefixes: [confer-internal/contracts/, sf/contracts/, at/contracts/,
+                    los/contracts/, paperclip/contracts/, razor/contracts/,
+                    moxi/contracts/, rkt/contracts/, aa/contracts/,
+                    flex/contracts/, jkyog/contracts/, dfl/contracts/,
+                    narada/contracts/, odyssey/contracts/]
+    extractable: true
+  - name: customer-org
+    primitive: entity
+    path_prefixes: [confer-internal/customers/]
+    extractable: false
+  - name: internal-sop
+    primitive: concept
+    path_prefixes: [confer-ops/sops/, confer-internal/sops/]
+    extractable: false
+  - name: project
+    primitive: concept
+    path_prefixes: [confer-internal/projects/, sf/projects/, at/projects/,
+                    los/projects/, paperclip/projects/, razor/projects/,
+                    moxi/projects/, rkt/projects/, aa/projects/, flex/projects/,
+                    jkyog/projects/, dfl/projects/, narada/projects/,
+                    odyssey/projects/]
+    extractable: false
+
+  # LoS product (mortgage)
+  - name: borrower
+    primitive: entity
+    path_prefixes: [los/borrowers/]
+    extractable: false
+  - name: loan
+    primitive: entity
+    path_prefixes: [los/loans/]
+    extractable: true
+  - name: urla_section
+    primitive: annotation
+    # Per-loan URLA sections write directly under los/urla/ flat —
+    # do not nest under los/loans/*/urla/ (upstream prefix matcher is literal).
+    path_prefixes: [los/urla/]
+    extractable: true
+  - name: condition
+    primitive: temporal
+    path_prefixes: [los/conditions/]
+    extractable: true
+  - name: milestone
+    primitive: temporal
+    path_prefixes: [los/milestones/]
+    extractable: true
+  - name: document
+    primitive: media
+    path_prefixes: [los/documents/]
+    extractable: true
+  - name: temporal_workflow
+    primitive: concept
+    path_prefixes: [los/orchestration/temporal/]
+    extractable: true                # extractable so workflow defs are searchable
+  - name: langgraph_node
+    primitive: concept
+    path_prefixes: [los/orchestration/langgraph/]
+    extractable: true
+  - name: n8n_workflow
+    primitive: concept
+    path_prefixes: [los/orchestration/n8n/]
+    extractable: true
+
+  # Paperclip (Confer internal CRM/CMO)
+  - name: contact
+    primitive: entity
+    path_prefixes: [paperclip/contacts/]
+    extractable: false
+  - name: opportunity
+    primitive: temporal
+    path_prefixes: [paperclip/opportunities/]
+    extractable: true
+  - name: account
+    primitive: entity
+    path_prefixes: [paperclip/accounts/]
+    extractable: false
+  - name: touchpoint
+    primitive: temporal
+    path_prefixes: [paperclip/touchpoints/]
+    extractable: true
+  - name: campaign
+    primitive: concept
+    path_prefixes: [paperclip/campaigns/]
+    extractable: false
+  - name: signal
+    primitive: annotation
+    path_prefixes: [paperclip/signals/]
+    extractable: true
+
+  # StoneFactory (wholesale stone ERP)
+  - name: sku
+    primitive: entity
+    path_prefixes: [sf/skus/]
+    extractable: false
+  - name: slab
+    primitive: entity
+    path_prefixes: [sf/slabs/]
+    extractable: true
+  - name: shipment
+    primitive: temporal
+    path_prefixes: [sf/shipments/]
+    extractable: true
+  - name: customer-tier
+    primitive: concept
+    path_prefixes: [sf/tiers/]
+    extractable: false
+  - name: invoice
+    primitive: temporal
+    path_prefixes: [sf/invoices/, paperclip/invoices/, los/invoices/,
+                    at/invoices/, razor/invoices/, moxi/invoices/,
+                    confer-internal/invoices/]
+    extractable: true
+  - name: supplier
+    primitive: entity
+    path_prefixes: [sf/suppliers/]
+    extractable: false
+  - name: yard-location
+    primitive: entity
+    path_prefixes: [sf/locations/]
+    extractable: false
+
+  # AadTech (device telemetry)
+  - name: device
+    primitive: entity
+    path_prefixes: [at/devices/]
+    extractable: false
+  - name: telemetry-stream
+    primitive: temporal
+    path_prefixes: [at/telemetry/]
+    extractable: true
+  - name: alert-rule
+    primitive: concept
+    path_prefixes: [at/alerts/]
+    extractable: false
+  - name: customer-site
+    primitive: entity
+    path_prefixes: [at/sites/]
+    extractable: false
+  - name: firmware-build
+    primitive: media
+    path_prefixes: [at/firmware/]
+    extractable: false
+  - name: incident
+    primitive: temporal
+    path_prefixes: [at/incidents/, sf/incidents/, los/incidents/,
+                    paperclip/incidents/, confer-ops/incidents/,
+                    confer-internal/incidents/, razor/incidents/, moxi/incidents/,
+                    rkt/incidents/, aa/incidents/, flex/incidents/, jkyog/incidents/,
+                    dfl/incidents/, narada/incidents/, odyssey/incidents/]
+    extractable: true
+
+# ─── CONTENT-PROCESS AXIS (orthogonal to domain) ───────────────────────────
+  # Note on path_prefixes: per upstream link-inference.ts these are LITERAL
+  # prefix matches, not globs. Each source that owns content of each type
+  # gets an explicit prefix line below. Add new sources by extending each list.
+  - name: plan
+    primitive: concept
+    path_prefixes: [agent-context/plans/, confer-internal/plans/, confer-ops/plans/,
+                    los/plans/, paperclip/plans/, sf/plans/, at/plans/,
+                    razor/plans/, moxi/plans/, rkt/plans/, aa/plans/,
+                    flex/plans/, jkyog/plans/, dfl/plans/, narada/plans/, odyssey/plans/]
+    extractable: false               # plans are referenced wholesale, not chunked
+  - name: design
+    primitive: concept
+    path_prefixes: [confer-internal/designs/, confer-ops/designs/, los/designs/,
+                    paperclip/designs/, sf/designs/, at/designs/, razor/designs/,
+                    moxi/designs/, rkt/designs/, aa/designs/, flex/designs/,
+                    jkyog/designs/, dfl/designs/, narada/designs/, odyssey/designs/]
+    extractable: false
+  - name: retro
+    primitive: concept
+    path_prefixes: [agent-context/retros/, confer-internal/retros/, confer-ops/retros/,
+                    los/retros/, paperclip/retros/, sf/retros/, at/retros/,
+                    razor/retros/, moxi/retros/, rkt/retros/, aa/retros/,
+                    flex/retros/, jkyog/retros/, dfl/retros/, narada/retros/, odyssey/retros/]
+    extractable: true
+  - name: learning
+    primitive: concept
+    path_prefixes: [agent-context/learnings/, confer-internal/learnings/,
+                    confer-ops/learnings/, los/learnings/, paperclip/learnings/,
+                    sf/learnings/, at/learnings/, razor/learnings/, moxi/learnings/,
+                    rkt/learnings/, aa/learnings/, flex/learnings/, jkyog/learnings/,
+                    dfl/learnings/, narada/learnings/, odyssey/learnings/]
+    extractable: true                # learnings ARE searchable insight chunks
+  - name: decision
+    primitive: concept
+    path_prefixes: [confer-internal/decision-logs/, confer-ops/decisions/,
+                    los/decisions/, paperclip/decisions/, sf/decisions/, at/decisions/,
+                    razor/decisions/, moxi/decisions/]
+    extractable: false
+  - name: spec
+    primitive: concept
+    path_prefixes: [confer-internal/specs/, confer-ops/specs/, los/specs/,
+                    paperclip/specs/, sf/specs/, at/specs/, razor/specs/, moxi/specs/]
+    extractable: false
+  - name: skill_registration
+    primitive: annotation
+    path_prefixes: [confer-ops/skills/]
+    extractable: false               # skill metadata pages — see §6.7 step 10
+
+# ─── RELATIONSHIPS ─────────────────────────────────────────────────────────
+link_types:
+  # Org-level
+  - { name: employed_by, inverse: employs }
+  - { name: reports_to,  inverse: reports_from }
+  - { name: signed,      inverse: signed_by }
+  - { name: owns_product, inverse: owned_by }
+  - { name: billed_to,   inverse: bills }
+  - { name: engaged_with, inverse: engaged_by }
+
+  # LoS
+  - { name: borrower_of, inverse: has_borrower }
+  - { name: conditions_required_for, inverse: requires_conditions }
+  - { name: document_supports, inverse: supported_by }
+  - { name: milestone_blocks, inverse: blocked_by }
+  - { name: orchestrated_by, inverse: orchestrates }
+
+  # Paperclip
+  - { name: belongs_to_account, inverse: contains_contact }
+  - { name: generated_by, inverse: generated }
+  - { name: responded_to, inverse: received_response }
+  - { name: surfaces_signal, inverse: surfaced_by }
+
+  # StoneFactory
+  - { name: shipped_to, inverse: received_shipment }
+  - { name: sourced_from, inverse: supplied }
+  - { name: priced_at_tier, inverse: applies_to }
+  - { name: stored_at, inverse: stores }
+
+  # AadTech
+  - { name: deployed_at, inverse: hosts }
+  - { name: triggered_by, inverse: triggers }
+  - { name: supersedes_firmware, inverse: superseded_by }
+
+  # ─── Epistemology lineage (replaces invented claim_genealogy table) ───
+  # Per principal decision: extend existing links primitive rather than
+  # creating a parallel lineage table.
+  - { name: refined_from,    inverse: refined_to }       # hunch → fact iteration
+  - { name: contradicted_by, inverse: contradicts }
+  - { name: escalated_from,  inverse: escalated_to }     # take → world_knowledge
+  # Upstream `supersedes` link is also used for the "this claim replaces that one" case.
+
+  # ─── Content-process edges ───
+  - { name: plan_for,           inverse: planned_by }
+  - { name: retro_of,           inverse: retroed_in }
+  - { name: learning_from,      inverse: produced_learning }
+  - { name: decision_about,     inverse: decided_in }
+  - { name: spec_implements,    inverse: implemented_by_spec }
+
+# ─── TAKES KIND TAXONOMY ───────────────────────────────────────────────────
+# Pack-level configuration. Note: `world_knowledge` requires upstream code
+# changes in `src/core/facts/classify.ts` + `engine.ts` FactKind enum to be
+# fully wired through extract.ts. Until that lands (separate sub-project),
+# `world_knowledge` is represented as a `take_proposals` row with
+# kind='take' + escalated_from link to its origin claim + computed
+# world_consensus ≥ 0.8.
+takes_kinds: [fact, take, bet, hunch]
+
+# ─── EXTRACTION TUNING ─────────────────────────────────────────────────────
+# Inherits gbrain-base-v2 defaults; per-type prompt_template overrides
+# land in pack v0.2.0 once we have eval evidence justifying them.
