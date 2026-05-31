@@ -88,6 +88,16 @@ const STALE_LOCK_MS = 5 * 60 * 1000;
 // in resolveStageTimeoutMs below so wildly-low values don't make resume
 // useless and wildly-high values don't mask config typos. See #1611.
 const DEFAULT_STAGE_TIMEOUT_MS = 35 * 60 * 1000; // 2_100_000ms = 35min
+
+function gbrainEmbeddingDisabled(): boolean {
+  const configPath = join(process.env.GBRAIN_HOME || join(HOME, ".gbrain"), "config.json");
+  try {
+    const cfg = JSON.parse(readFileSync(configPath, "utf-8")) as { embedding_disabled?: unknown };
+    return cfg.embedding_disabled === true;
+  } catch {
+    return false;
+  }
+}
 const MIN_STAGE_TIMEOUT_MS = 60_000;             // 1 minute floor
 const MAX_STAGE_TIMEOUT_MS = 86_400_000;         // 24 hour ceiling
 
@@ -776,7 +786,8 @@ async function runCodeImport(args: CliArgs): Promise<StageResult> {
     };
   }
 
-  const walkResult = spawnGbrain(["sync", "--strategy", "code", "--source", sourceId], {
+  const noEmbedArgs = gbrainEmbeddingDisabled() ? ["--no-embed"] : [];
+  const walkResult = spawnGbrain(["sync", "--strategy", "code", "--source", sourceId, ...noEmbedArgs], {
     stdio: args.quiet ? ["ignore", "ignore", "ignore"] : ["ignore", "inherit", "inherit"],
     timeout: codeTimeoutMs,
     baseEnv: gbrainEnv,
@@ -794,7 +805,7 @@ async function runCodeImport(args: CliArgs): Promise<StageResult> {
   }
 
   if (args.mode === "full") {
-    const reindexResult = spawnGbrain(["reindex-code", "--source", sourceId, "--yes"], {
+    const reindexResult = spawnGbrain(["reindex-code", "--source", sourceId, "--yes", ...noEmbedArgs], {
       stdio: args.quiet ? ["ignore", "ignore", "ignore"] : ["ignore", "inherit", "inherit"],
       timeout: codeTimeoutMs,
       baseEnv: gbrainEnv,
