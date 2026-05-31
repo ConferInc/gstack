@@ -30,11 +30,13 @@ import { generateInvokeSkill } from './composition';
 import { generateReviewArmy } from './review-army';
 import { generateDxFramework } from './dx';
 import { generateModelOverlay } from './model-overlay';
-import { generateGBrainContextLoad, generateGBrainSaveResults } from './gbrain';
+import { generateGBrainContextLoad, generateGBrainSaveResults, generateBrainPreflight, generateBrainCacheRefresh, generateBrainWriteBack } from './gbrain';
 import { generateQuestionPreferenceCheck, generateQuestionLog, generateInlineTuneFeedback } from './question-tuning';
 import { generateMakePdfSetup } from './make-pdf';
 import { generateTasksSectionEmit, generateTasksSectionAggregate } from './tasks-section';
 import { generateConferFleet, generateEscalationChain, loadConferFleet } from './confer-agents';
+import { SECTION, SECTION_INDEX } from './sections';
+import { generateRedactTaxonomyTable, generateRedactInvocationBlock } from './redact-doc';
 
 /**
  * Confer fleet gate (SP-10). True only when resolver/agents.yaml is present and
@@ -48,6 +50,8 @@ const conferFleetGate = (): boolean => loadConferFleet() !== null;
 export const RESOLVERS: Record<string, ResolverValue> = {
   SLUG_EVAL: generateSlugEval,
   SLUG_SETUP: generateSlugSetup,
+  REDACT_TAXONOMY_TABLE: generateRedactTaxonomyTable,
+  REDACT_INVOCATION_BLOCK: generateRedactInvocationBlock,
   COMMAND_REFERENCE: generateCommandReference,
   SNAPSHOT_FLAGS: generateSnapshotFlags,
   PREAMBLE: generatePreamble,
@@ -96,6 +100,9 @@ export const RESOLVERS: Record<string, ResolverValue> = {
   BIN_DIR: (ctx) => ctx.paths.binDir,
   GBRAIN_CONTEXT_LOAD: generateGBrainContextLoad,
   GBRAIN_SAVE_RESULTS: generateGBrainSaveResults,
+  BRAIN_PREFLIGHT: generateBrainPreflight,
+  BRAIN_CACHE_REFRESH: generateBrainCacheRefresh,
+  BRAIN_WRITE_BACK: generateBrainWriteBack,
   QUESTION_PREFERENCE_CHECK: generateQuestionPreferenceCheck,
   QUESTION_LOG: generateQuestionLog,
   INLINE_TUNE_FEEDBACK: generateInlineTuneFeedback,
@@ -106,4 +113,6 @@ export const RESOLVERS: Record<string, ResolverValue> = {
   // presence so they are NO-OPs on upstream/non-Confer hosts.
   CONFER_FLEET: { resolve: generateConferFleet, appliesTo: conferFleetGate },
   ESCALATION_CHAIN: { resolve: generateEscalationChain, appliesTo: conferFleetGate },
+  SECTION,
+  SECTION_INDEX,
 };
