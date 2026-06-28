@@ -825,8 +825,8 @@ the `client_credentials` token exchange the fleet agents use.
   place it there out-of-band (e.g. via the secret channel in
   `~/Documents/Yatin's Brain/Secrets/`), then wire the agent with
   `confer-openclaw-gbrain-wire.sh wire <agent>` on that host.
-- Record only the **`client_id`** (non-secret) and the agent/source mapping in
-  the inventory (Step 5).
+- Record only the non-secret mapping (name, tier, source grant) in the access
+  registry (Step 5) — not the secret, and not the raw client_id.
 
 If `register-client` is not available in the installed gbrain build, surface
 the `gbrain auth --help` output and STOP — do not improvise a token.
@@ -843,24 +843,40 @@ recommended next step; do not run it here.
 
 ---
 
-## Step 5: Add an infra-inventory entry
+## Step 5: Register the connection in the access registry
 
-Record the engagement so the fleet has a durable, non-secret map of which agent
-reads which isolated source. The Confer inventory lives in the ops vault
-(`~/Agent-Ops/40-Systems-and-Servers/`); the SP-10 fleet roster is
-`resolver/agents.yaml` in this repo. Add an entry capturing ONLY non-secret
-fields:
+Record the engagement in the **durable access registry** so the fleet has a
+machine-readable, non-secret map of which connection reads which source — and so
+the drift-checker stops flagging it as an UNDECLARED connection. The registry is
+`~/Agent-Ops/inventory/access.json` (git-tracked, no secrets, no client_ids). Add
+a principal entry capturing ONLY non-secret fields:
 
-```yaml
-# infra inventory entry — NO SECRETS
-client: <client-slug>
-gbrain_source: <source-id>
-federated: false            # isolation-first
-agent: <agent-name>
-oauth_client_id: <client_id>   # NOT the secret
-scope: <scope>
-onboarded: <YYYY-MM-DD>
+```jsonc
+// append to the "principals" array in ~/Agent-Ops/inventory/access.json
+{
+  "name": "<agent-name>",        // = the OAuth client_name
+  "kind": "client-agent",         // or employee-agent / fleet-agent / external-connector / tooling
+  "tier": "T2",                   // client lane = one client source. See 35-GBrain/access-tiers.md
+  "owner": "<client> (client)",
+  "grant": ["<source-id>"],       // its federated_read, by source-name. T2 = exactly one client source.
+  "write_source": "<source-id>",
+  "scope": "<scope>",
+  "compartments": ["client:<source-id>"],
+  "status": "active"
+}
 ```
+
+Then verify the registry matches prod and the new connection is no longer
+undeclared:
+
+```bash
+~/Agent-Ops/scripts/gbrain-access-pull.sh        # refresh the live snapshot
+~/Agent-Ops/scripts/gbrain-access-reconcile.py   # must be ✅ clean (no UNDECLARED for <agent-name>)
+git -C ~/Agent-Ops add inventory/access.json && git -C ~/Agent-Ops commit -m "access: onboard <client-slug>"
+```
+
+Policy + tier model: `~/Agent-Ops/35-GBrain/access-tiers.md`. Change procedure:
+`~/Agent-Ops/35-GBrain/access-change-runbook.md`.
 
 If the new agent should appear in the SP-10 fleet registry, also add it to
 `resolver/agents.yaml` with `gbrain_sources: [<source-id>]` and the correct
@@ -897,7 +913,9 @@ Any RED row gets a one-line next action.
 - **Isolation-first.** Every source created here is `--no-federated`. Never
   add a new client source to the federated read set during onboarding.
 - **Zero secrets in tracked files.** The OAuth `client_secret` never touches
-  this repo, the inventory, or any commit. Only the `client_id` is recorded.
+  this repo, the inventory, or any commit. Only non-secret descriptive fields
+  (name, tier, source grant) are recorded — never the secret, and not the raw
+  client_id (it lives only in prod + the gitignored live snapshot).
 - **No collision clobber.** Never re-create an existing source-id.
 - **Don't auto-ingest.** Onboarding scaffolds; content ingest is a separate,
   deliberate `/confer-brain-ingest` run.
